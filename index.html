@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本周CVSE信息</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .week-info {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 15px 30px;
+            display: inline-block;
+            font-size: 1.1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 
+                0 10px 30px rgba(0,0,0,0.1),
+                0 1px 8px rgba(0,0,0,0.1);
+            transform: translateY(0);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 
+                0 15px 40px rgba(0,0,0,0.15),
+                0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .content-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 
+                0 10px 30px rgba(0,0,0,0.1),
+                0 1px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-tab {
+            padding: 8px 16px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .filter-tab:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .filter-tab.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .video-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .video-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .video-item:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .video-rank {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .video-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .video-meta {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .video-uploader {
+            font-weight: 500;
+            color: #667eea;
+        }
+
+        .video-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .tag {
+            background: #f0f0f0;
+            color: #666;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+
+        .tag.domestic {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .tag.sv {
+            background: #fce4ec;
+            color: #c2185b;
+        }
+
+        .tag.utau {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .filter-tabs {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>CVSE 本周统计</h1>
+            <div class="week-info" id="weekInfo">
+                <span id="weekRange">加载中...</span>
+            </div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="totalCount">-</div>
+                <div class="stat-label">收录总数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="domesticCount">-</div>
+                <div class="stat-label">国产类</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="svCount">-</div>
+                <div class="stat-label">SV类</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="utauCount">-</div>
+                <div class="stat-label">UTAU类</div>
+            </div>
+        </div>
+
+        <div class="content-section">
+            <h2 class="section-title">视频列表</h2>
+            <div class="filter-tabs">
+                <button class="filter-tab active" data-filter="all">全部</button>
+                <button class="filter-tab" data-filter="domestic">国产类</button>
+                <button class="filter-tab" data-filter="sv">SV类</button>
+                <button class="filter-tab" data-filter="utau">UTAU类</button>
+                <button class="filter-tab" data-filter="new">新收录</button>
+            </div>
+            <div class="video-list" id="videoList">
+                <div class="loading">正在加载数据...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class WeeklyInfo {
+            constructor() {
+                this.currentFilter = 'all';
+                this.data = [];
+                this.init();
+            }
+
+            init() {
+                this.setWeekInfo();
+                this.setupFilterTabs();
+                this.loadData();
+            }
+
+            setWeekInfo() {
+                const now = new Date();
+                const endOfWeek = new Date(now);
+                endOfWeek.setDate(now.getDate() - (now.getDay() || 7) + 6);
+                endOfWeek.setHours(0, 0, 0, 0);
+                
+                const startOfWeek = new Date(endOfWeek);
+                startOfWeek.setDate(endOfWeek.getDate() - 7);
+
+                const formatDate = (date) => {
+                    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+                };
+
+                document.getElementById('weekRange').textContent = 
+                    `${formatDate(startOfWeek)} - ${formatDate(endOfWeek)}`;
+            }
+
+            setupFilterTabs() {
+                const tabs = document.querySelectorAll('.filter-tab');
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        tabs.forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+                        this.currentFilter = tab.dataset.filter;
+                        this.renderVideos();
+                    });
+                });
+            }
+
+            async loadData() {
+                try {
+                    const response = await fetch('/api/weekly-data');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const result = await response.json();
+                    
+                    if (!result.success) {
+                        throw new Error(result.error || '数据获取失败');
+                    }
+
+                    this.data = result.data;
+                    this.weekRange = result.week_range;
+                    
+                    // 更新周范围显示
+                    if (this.weekRange) {
+                        document.getElementById('weekRange').textContent = 
+                            `${this.weekRange.start} - ${this.weekRange.end}`;
+                    }
+                    
+                    this.updateStats(result.stats);
+                    this.renderVideos();
+                } catch (error) {
+                    console.error('加载数据失败:', error);
+                    document.getElementById('videoList').innerHTML = 
+                        `<div class="empty-state">
+                            <h3>数据加载失败</h3>
+                            <p>${error.message}</p>
+                            <p>请确保Web服务器已启动 (python web_server.py)</p>
+                        </div>`;
+                }
+            }
+
+            updateStats(stats = null) {
+                if (stats) {
+                    // 使用从API返回的统计数据
+                    this.animateNumber('totalCount', stats.total);
+                    this.animateNumber('domesticCount', stats.domestic);
+                    this.animateNumber('svCount', stats.sv);
+                    this.animateNumber('utauCount', stats.utau);
+                } else {
+                    // 备用：从本地数据计算统计
+                    const total = this.data.length;
+                    const domestic = this.data.filter(item => item.ranks.includes('domestic')).length;
+                    const sv = this.data.filter(item => item.ranks.includes('sv')).length;
+                    const utau = this.data.filter(item => item.ranks.includes('utau')).length;
+
+                    this.animateNumber('totalCount', total);
+                    this.animateNumber('domesticCount', domestic);
+                    this.animateNumber('svCount', sv);
+                    this.animateNumber('utauCount', utau);
+                }
+            }
+
+            animateNumber(elementId, target) {
+                const element = document.getElementById(elementId);
+                const duration = 1000;
+                const start = 0;
+                const startTime = performance.now();
+
+                const animate = (currentTime) => {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const current = Math.floor(start + (target - start) * progress);
+                    element.textContent = current;
+
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    }
+                };
+
+                requestAnimationFrame(animate);
+            }
+
+            getFilteredData() {
+                if (this.currentFilter === 'all') {
+                    return this.data;
+                } else if (this.currentFilter === 'new') {
+                    return this.data.filter(item => !item.is_republish);
+                } else {
+                    return this.data.filter(item => item.ranks.includes(this.currentFilter));
+                }
+            }
+
+            renderVideos() {
+                const videoList = document.getElementById('videoList');
+                const filteredData = this.getFilteredData();
+
+                if (filteredData.length === 0) {
+                    videoList.innerHTML = '<div class="empty-state"><h3>暂无数据</h3><p>当前筛选条件下没有视频</p></div>';
+                    return;
+                }
+
+                videoList.innerHTML = filteredData.map((video, index) => this.createVideoItem(video, index + 1)).join('');
+            }
+
+            createVideoItem(video, rank) {
+                const formatDuration = (seconds) => {
+                    const minutes = Math.floor(seconds / 60);
+                    const secs = seconds % 60;
+                    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+                };
+
+                const createTags = () => {
+                    const tags = [];
+                    video.ranks.forEach(rank => {
+                        const rankMap = {
+                            'domestic': '国产',
+                            'sv': 'SV', 
+                            'utau': 'UTAU'
+                        };
+                        tags.push(`<span class="tag ${rank}">${rankMap[rank]}</span>`);
+                    });
+                    if (video.is_republish) {
+                        tags.push('<span class="tag">转载</span>');
+                    }
+                    return tags.join('');
+                };
+
+                return `
+                    <div class="video-item" onclick="window.open('https://www.bilibili.com/video/${video.bvid}', '_blank')">
+                        <div class="video-rank">#${rank}</div>
+                        <div class="video-title">${video.title}</div>
+                        <div class="video-meta">
+                            <span class="video-uploader">${video.uploader}</span>
+                            <span>时长: ${formatDuration(video.duration)}</span>
+                            <span>${video.pubdate}</span>
+                        </div>
+                        <div class="video-tags">
+                            ${createTags()}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', () => {
+            new WeeklyInfo();
+        });
+    </script>
+</body>
+</html>

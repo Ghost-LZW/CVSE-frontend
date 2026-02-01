@@ -1,0 +1,3 @@
+[submodule "CVSE-GatheringTools"]
+	path = CVSE-GatheringTools
+	url = https://github.com/yhtq/CVSE-GatheringTools.git
