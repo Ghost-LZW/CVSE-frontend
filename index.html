@@ -3,8 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>本周CVSE信息</title>
+    <title>CVSE 收录管理系统</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #818cf8;
+            --secondary: #ec4899;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #06b6d4;
+            --dark: #1e293b;
+            --gray-50: #f8fafc;
+            --gray-100: #f1f5f9;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1;
+            --gray-400: #94a3b8;
+            --gray-500: #64748b;
+            --gray-600: #475569;
+            --gray-700: #334155;
+            --gray-800: #1e293b;
+            --gray-900: #0f172a;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --radius: 0.5rem;
+            --radius-lg: 0.75rem;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,55 +42,132 @@
 
         body {
             font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--gray-100);
             min-height: 100vh;
-            padding: 20px;
-            line-height: 1.6;
+            color: var(--gray-800);
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
+        .app-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
             color: white;
+            padding: 1rem 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow-lg);
         }
 
-        .header h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        .header-content {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .week-info {
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
             background: rgba(255,255,255,0.2);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 15px 30px;
-            display: inline-block;
-            font-size: 1.1rem;
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .logo h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header-nav {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .nav-btn {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .nav-btn.active {
+            background: white;
+            color: var(--primary);
+        }
+
+        .main-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .card {
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--gray-800);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 40px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
         }
 
         .stat-card {
             background: white;
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 
-                0 10px 30px rgba(0,0,0,0.1),
-                0 1px 8px rgba(0,0,0,0.1);
-            transform: translateY(0);
-            transition: all 0.3s ease;
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+            box-shadow: var(--shadow);
             position: relative;
             overflow: hidden;
         }
@@ -73,116 +179,194 @@
             left: 0;
             right: 0;
             height: 4px;
-            background: linear-gradient(90deg, #667eea, #764ba2);
         }
 
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 
-                0 15px 40px rgba(0,0,0,0.15),
-                0 2px 10px rgba(0,0,0,0.1);
-        }
+        .stat-card.total::before { background: var(--primary); }
+        .stat-card.domestic::before { background: #3b82f6; }
+        .stat-card.sv::before { background: var(--secondary); }
+        .stat-card.utau::before { background: #8b5cf6; }
+        .stat-card.uncheck::before { background: var(--warning); }
 
         .stat-number {
-            font-size: 2.5rem;
+            font-size: 2rem;
             font-weight: 700;
-            color: #333;
-            margin-bottom: 5px;
+            color: var(--gray-900);
         }
 
         .stat-label {
-            font-size: 0.9rem;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            font-size: 0.875rem;
+            color: var(--gray-500);
+            margin-top: 0.25rem;
         }
 
-        .content-section {
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 
-                0 10px 30px rgba(0,0,0,0.1),
-                0 1px 8px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-
-        .section-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #f0f0f0;
-        }
-
-        .filter-tabs {
+        .filter-bar {
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
             flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+            padding: 1rem;
+            background: var(--gray-50);
+            border-radius: var(--radius);
+            margin-bottom: 1rem;
         }
 
-        .filter-tab {
-            padding: 8px 16px;
-            border: 2px solid #e0e0e0;
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filter-label {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+            white-space: nowrap;
+        }
+
+        .input {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .select {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            outline: none;
             background: white;
-            border-radius: 20px;
             cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 0.9rem;
         }
 
-        .filter-tab:hover {
-            border-color: #667eea;
-            background: #f8f9ff;
+        .select:focus {
+            border-color: var(--primary);
         }
 
-        .filter-tab.active {
-            background: #667eea;
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
             color: white;
-            border-color: #667eea;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-700);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-300);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
+        }
+
+        .btn-sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8125rem;
         }
 
         .video-list {
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 0.75rem;
         }
 
         .video-item {
             background: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 20px;
-            transition: all 0.3s ease;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius-lg);
+            padding: 1rem;
+            transition: all 0.2s;
             cursor: pointer;
-            position: relative;
         }
 
         .video-item:hover {
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            border-color: #667eea;
-            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--primary-light);
         }
 
-        .video-rank {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-            color: white;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
+        .video-item.selected {
+            border-color: var(--primary);
+            background: #f5f3ff;
+        }
+
+        .video-item.edited {
+            border-color: var(--warning);
+            background: #fffbeb;
+        }
+
+        .video-content {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .video-cover {
+            width: 160px;
+            height: 90px;
+            border-radius: var(--radius);
+            object-fit: cover;
+            background: var(--gray-200);
+            flex-shrink: 0;
+        }
+
+        .video-info {
+            flex: 1;
+            min-width: 0;
         }
 
         .video-title {
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 600;
-            color: #333;
-            margin-bottom: 8px;
+            color: var(--gray-900);
+            margin-bottom: 0.5rem;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
@@ -191,52 +375,397 @@
 
         .video-meta {
             display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            font-size: 0.8125rem;
+            color: var(--gray-600);
+            margin-bottom: 0.5rem;
+        }
+
+        .video-meta-item {
+            display: flex;
             align-items: center;
-            gap: 15px;
-            margin-bottom: 10px;
-            font-size: 0.9rem;
-            color: #666;
+            gap: 0.25rem;
         }
 
         .video-uploader {
+            color: var(--primary);
             font-weight: 500;
-            color: #667eea;
         }
 
         .video-tags {
             display: flex;
-            gap: 8px;
             flex-wrap: wrap;
-            margin-top: 10px;
+            gap: 0.5rem;
         }
 
         .tag {
-            background: #f0f0f0;
-            color: #666;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 0.8rem;
+            padding: 0.25rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
         }
 
-        .tag.domestic {
-            background: #e3f2fd;
-            color: #1976d2;
+        .tag-rank-domestic { background: #dbeafe; color: #1d4ed8; }
+        .tag-rank-sv { background: #fce7f3; color: #be185d; }
+        .tag-rank-utau { background: #ede9fe; color: #7c3aed; }
+        .tag-examined { background: #d1fae5; color: #059e67; }
+        .tag-uncheck { background: #fef3c7; color: #d97706; }
+        .tag-republish { background: #e5e7eb; color: #4b5563; }
+
+        .video-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--gray-100);
         }
 
-        .tag.sv {
-            background: #fce4ec;
-            color: #c2185b;
+        .edit-panel {
+            display: none;
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            position: fixed;
+            right: 0;
+            top: 0;
+            height: 100vh;
+            width: 400px;
+            z-index: 200;
+            overflow-y: auto;
         }
 
-        .tag.utau {
-            background: #f3e5f5;
-            color: #7b1fa2;
+        .edit-panel.open {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        .edit-panel-header {
+            padding: 1.25rem;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 1;
+        }
+
+        .edit-panel-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .edit-panel-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--gray-500);
+            line-height: 1;
+        }
+
+        .edit-panel-close:hover {
+            color: var(--gray-700);
+        }
+
+        .edit-panel-body {
+            padding: 1.25rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--gray-700);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+
+        .checkbox-label input {
+            width: 1rem;
+            height: 1rem;
+            accent-color: var(--primary);
+        }
+
+        .checkbox-label.checked {
+            color: var(--primary);
+        }
+
+        .toggle {
+            position: relative;
+            width: 48px;
+            height: 24px;
+            background: var(--gray-300);
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .toggle.active {
+            background: var(--success);
+        }
+
+        .toggle::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        .toggle.active::after {
+            transform: translateX(24px);
+        }
+
+        .edit-panel-footer {
+            padding: 1.25rem;
+            border-top: 1px solid var(--gray-200);
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            position: sticky;
+            bottom: 0;
+            background: white;
+        }
+
+        .changes-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            box-shadow: 0 -4px 6px -1px rgb(0 0 0 / 0.1);
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            z-index: 150;
+            max-height: 40vh;
+            overflow-y: auto;
+        }
+
+        .changes-panel.open {
+            transform: translateY(0);
+        }
+
+        .changes-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background: white;
+        }
+
+        .changes-title {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .changes-badge {
+            background: var(--primary);
+            color: white;
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+        }
+
+        .changes-list {
+            padding: 1rem 1.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .change-item {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            padding: 0.75rem;
+            font-size: 0.8125rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .change-item-info {
+            flex: 1;
+        }
+
+        .change-item-title {
+            font-weight: 500;
+            color: var(--gray-800);
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .change-item-desc {
+            color: var(--gray-500);
+            font-size: 0.75rem;
+        }
+
+        .change-item-remove {
+            background: none;
+            border: none;
+            color: var(--gray-400);
+            cursor: pointer;
+            padding: 0.25rem;
+        }
+
+        .change-item-remove:hover {
+            color: var(--danger);
+        }
+
+        .debug-panel {
+            display: none;
+            position: fixed;
+            right: 0;
+            top: 0;
+            height: 100vh;
+            width: 500px;
+            background: var(--gray-900);
+            color: var(--gray-100);
+            z-index: 300;
+            overflow-y: auto;
+        }
+
+        .debug-panel.open {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        .debug-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--gray-700);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background: var(--gray-800);
+        }
+
+        .debug-title {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .debug-close {
+            background: none;
+            border: none;
+            color: var(--gray-400);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .debug-body {
+            padding: 1rem;
+        }
+
+        .debug-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .debug-label {
+            font-size: 0.75rem;
+            color: var(--gray-400);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .debug-input {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--gray-800);
+            border: 1px solid var(--gray-700);
+            border-radius: var(--radius);
+            color: var(--gray-100);
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.875rem;
+            outline: none;
+        }
+
+        .debug-input:focus {
+            border-color: var(--primary);
+        }
+
+        .debug-output {
+            background: #0d1117;
+            border: 1px solid var(--gray-700);
+            border-radius: var(--radius);
+            padding: 1rem;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.8125rem;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .debug-output.error {
+            color: var(--danger);
+        }
+
+        .debug-output.success {
+            color: var(--success);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--gray-500);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
         }
 
         .loading {
             text-align: center;
-            padding: 40px;
-            color: #666;
+            padding: 2rem;
+            color: var(--gray-500);
         }
 
         .loading::after {
@@ -244,271 +773,863 @@
             display: inline-block;
             width: 20px;
             height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
+            border: 2px solid var(--gray-300);
+            border-top-color: var(--primary);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-left: 10px;
+            animation: spin 0.8s linear infinite;
+            margin-left: 0.5rem;
+            vertical-align: middle;
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            to { transform: rotate(360deg); }
         }
 
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #666;
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 250;
         }
 
-        .empty-state h3 {
-            margin-bottom: 10px;
-            font-size: 1.2rem;
+        .modal-overlay.open {
+            display: block;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            width: 90%;
+            max-width: 500px;
+            z-index: 300;
+        }
+
+        .modal.open {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -48%); }
+            to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+
+        .modal-header {
+            padding: 1.25rem;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--gray-500);
+        }
+
+        .modal-body {
+            padding: 1.25rem;
+        }
+
+        .modal-footer {
+            padding: 1.25rem;
+            border-top: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+        }
+
+        .manual-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+
+        .manual-link:hover {
+            text-decoration: underline;
+        }
+
+        .ranking-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .ranking-card {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            padding: 1rem;
+        }
+
+        .ranking-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .ranking-rank {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .ranking-score {
+            font-size: 0.875rem;
+            color: var(--gray-500);
         }
 
         @media (max-width: 768px) {
-            .header h1 {
-                font-size: 2rem;
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
             }
-            
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .filter-tabs {
+
+            .header-nav {
+                width: 100%;
                 justify-content: center;
+            }
+
+            .video-content {
+                flex-direction: column;
+            }
+
+            .video-cover {
+                width: 100%;
+                height: 180px;
+            }
+
+            .edit-panel {
+                width: 100%;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <h1>CVSE 本周统计</h1>
-            <div class="week-info" id="weekInfo">
-                <span id="weekRange">加载中...</span>
+    <header class="app-header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">📋</div>
+                <h1>CVSE 收录管理系统</h1>
             </div>
-        </header>
+            <nav class="header-nav">
+                <button class="nav-btn active" data-page="recording">🎯 实时收录</button>
+                <button class="nav-btn" data-page="preview">📊 预览校审</button>
+                <button class="nav-btn" data-page="pika">🔍 皮卡挑选</button>
+                <button class="nav-btn" data-page="debug">🔧 API调试</button>
+            </nav>
+        </div>
+    </header>
 
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-number" id="totalCount">-</div>
-                <div class="stat-label">收录总数</div>
+    <main class="main-container">
+        <div id="recording-page" class="page active">
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card total">
+                    <div class="stat-number" id="totalCount">-</div>
+                    <div class="stat-label">收录总数</div>
+                </div>
+                <div class="stat-card domestic">
+                    <div class="stat-number" id="domesticCount">-</div>
+                    <div class="stat-label">国产类</div>
+                </div>
+                <div class="stat-card sv">
+                    <div class="stat-number" id="svCount">-</div>
+                    <div class="stat-label">SV类</div>
+                </div>
+                <div class="stat-card utau">
+                    <div class="stat-number" id="utauCount">-</div>
+                    <div class="stat-label">UTAU类</div>
+                </div>
+                <div class="stat-card uncheck">
+                    <div class="stat-number" id="uncheckCount">-</div>
+                    <div class="stat-label">待收录</div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-number" id="domesticCount">-</div>
-                <div class="stat-label">国产类</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="svCount">-</div>
-                <div class="stat-label">SV类</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="utauCount">-</div>
-                <div class="stat-label">UTAU类</div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        📺 视频列表
+                        <a href="https://cvse.pingcode.com/wiki/spaces/Z/pages/QigBLflM" target="_blank" class="manual-link">📖 收录手册</a>
+                    </div>
+                    <div class="filter-bar" style="margin-bottom: 0; padding: 0; background: none;">
+                        <div class="filter-group">
+                            <span class="filter-label">日期:</span>
+                            <input type="date" class="input" id="dateFilter" style="width: 150px;">
+                        </div>
+                        <div class="filter-group">
+                            <span class="filter-label">关键字:</span>
+                            <input type="text" class="input" id="searchKeyword" placeholder="标题/UP主" style="width: 150px;">
+                        </div>
+                        <div class="filter-group">
+                            <span class="filter-label">期刊:</span>
+                            <select class="select" id="rankFilter">
+                                <option value="all">全部</option>
+                                <option value="domestic">国产类</option>
+                                <option value="sv">SV类</option>
+                                <option value="utau">UTAU类</option>
+                                <option value="unrecorded">未收录</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <span class="filter-label">状态:</span>
+                            <select class="select" id="examinedFilter">
+                                <option value="">全部</option>
+                                <option value="yes">已收录</option>
+                                <option value="no">未收录</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <span class="filter-label">BV号:</span>
+                            <input type="text" class="input" id="bvidFilter" placeholder="BV..." style="width: 120px;">
+                        </div>
+                        <button class="btn btn-primary" id="searchBtn">🔍 搜索</button>
+                        <button class="btn btn-secondary" id="refreshBtn">🔄 刷新</button>
+                    </div>
+                </div>
+                <div class="video-list" id="videoList">
+                    <div class="loading">正在加载数据...</div>
+                </div>
             </div>
         </div>
 
-        <div class="content-section">
-            <h2 class="section-title">视频列表</h2>
-            <div class="filter-tabs">
-                <button class="filter-tab active" data-filter="all">全部</button>
-                <button class="filter-tab" data-filter="domestic">国产类</button>
-                <button class="filter-tab" data-filter="sv">SV类</button>
-                <button class="filter-tab" data-filter="utau">UTAU类</button>
-                <button class="filter-tab" data-filter="new">新收录</button>
+        <div id="preview-page" class="page">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📊 排行榜预览</div>
+                    <div style="display: flex; gap: 0.75rem;">
+                        <select class="select" id="previewRank">
+                            <option value="domestic">国产类</option>
+                            <option value="sv">SV类</option>
+                            <option value="utau">UTAU类</option>
+                        </select>
+                        <input type="number" class="input" id="previewIndex" placeholder="期数" value="0" style="width: 80px;">
+                        <button class="btn btn-primary" id="calculateBtn">🧮 计算排行榜</button>
+                    </div>
+                </div>
+                <div class="ranking-preview" id="rankingPreview">
+                    <div class="empty-state">点击"计算排行榜"获取预览数据</div>
+                </div>
             </div>
-            <div class="video-list" id="videoList">
-                <div class="loading">正在加载数据...</div>
+        </div>
+
+        <div id="pika-page" class="page">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🔍 皮卡挑选模式</div>
+                </div>
+                <div class="filter-bar">
+                    <div class="filter-group">
+                        <span class="filter-label">关键字:</span>
+                        <input type="text" class="input" id="pikaKeyword" placeholder="标题/UP主" style="width: 200px;">
+                    </div>
+                    <button class="btn btn-primary" id="pikaSearchBtn">🔍 搜索</button>
+                </div>
+                <div class="video-list" id="pikaVideoList">
+                    <div class="empty-state">输入关键字搜索稿件</div>
+                </div>
             </div>
+        </div>
+
+        <div id="debug-page" class="page">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🔧 API 调试面板</div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    <div class="filter-group">
+                        <span class="filter-label">API端点:</span>
+                        <select class="select" id="debugEndpoint" style="flex: 1; max-width: 300px;">
+                            <option value="/api/videos">GET /api/videos</option>
+                            <option value="/api/video/BVxxx">GET /api/video/&lt;bvid&gt;</option>
+                            <option value="/api/submit-changes">POST /api/submit-changes</option>
+                            <option value="/api/calculate-rankings">POST /api/calculate-rankings</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">请求参数 (JSON):</label>
+                        <textarea class="debug-input" id="debugParams" rows="8" style="width: 100%;"></textarea>
+                    </div>
+                    <button class="btn btn-primary" id="debugSendBtn" style="align-self: flex-start;">🚀 发送请求</button>
+                    <div class="form-group">
+                        <label class="form-label">响应结果:</label>
+                        <div class="debug-output" id="debugOutput">等待发送请求...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="changes-panel" id="changesPanel">
+        <div class="changes-header">
+            <div class="changes-title">
+                📝 本地改动
+                <span class="changes-badge" id="changesCount">0</span>
+            </div>
+            <div style="display: flex; gap: 0.75rem;">
+                <button class="btn btn-secondary btn-sm" id="clearChangesBtn">清空</button>
+                <button class="btn btn-success btn-sm" id="submitChangesBtn">提交更改</button>
+            </div>
+        </div>
+        <div class="changes-list" id="changesList">
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay"></div>
+    <div class="modal" id="submitModal">
+        <div class="modal-header">
+            <div class="modal-title">确认提交</div>
+            <button class="modal-close" id="modalClose">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>确定要提交 <strong id="submitCount">0</strong> 项更改吗？</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="modalCancel">取消</button>
+            <button class="btn btn-success" id="modalConfirm">确认提交</button>
         </div>
     </div>
 
     <script>
-        class WeeklyInfo {
+        class CVSEApp {
             constructor() {
-                this.currentFilter = 'all';
-                this.data = [];
+                this.videos = [];
+                this.changes = new Map();
+                this.currentPage = 'recording';
                 this.init();
             }
 
             init() {
-                this.setWeekInfo();
-                this.setupFilterTabs();
-                this.loadData();
+                this.setupNavigation();
+                this.setupFilters();
+                this.setupChangesPanel();
+                this.setupDebugPanel();
+                this.loadVideos();
             }
 
-            setWeekInfo() {
-                const now = new Date();
-                const endOfWeek = new Date(now);
-                endOfWeek.setDate(now.getDate() - (now.getDay() || 7) + 6);
-                endOfWeek.setHours(0, 0, 0, 0);
-                
-                const startOfWeek = new Date(endOfWeek);
-                startOfWeek.setDate(endOfWeek.getDate() - 7);
-
-                const formatDate = (date) => {
-                    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
-                };
-
-                document.getElementById('weekRange').textContent = 
-                    `${formatDate(startOfWeek)} - ${formatDate(endOfWeek)}`;
-            }
-
-            setupFilterTabs() {
-                const tabs = document.querySelectorAll('.filter-tab');
-                tabs.forEach(tab => {
-                    tab.addEventListener('click', () => {
-                        tabs.forEach(t => t.classList.remove('active'));
-                        tab.classList.add('active');
-                        this.currentFilter = tab.dataset.filter;
-                        this.renderVideos();
+            setupNavigation() {
+                document.querySelectorAll('.nav-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                        btn.classList.add('active');
+                        document.getElementById(`${btn.dataset.page}-page`).classList.add('active');
+                        this.currentPage = btn.dataset.page;
                     });
                 });
             }
 
-            async loadData() {
-                try {
-                    const response = await fetch('/api/weekly-data');
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+            setupFilters() {
+                document.getElementById('searchBtn').addEventListener('click', () => this.loadVideos());
+                document.getElementById('refreshBtn').addEventListener('click', () => this.loadVideos());
+                document.getElementById('bvidFilter').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.loadVideos();
+                });
+                document.getElementById('searchKeyword').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.loadVideos();
+                });
+
+                document.getElementById('calculateBtn').addEventListener('click', () => this.calculateRankings());
+                
+                document.getElementById('pikaSearchBtn').addEventListener('click', () => this.pikaSearch());
+                document.getElementById('pikaKeyword').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.pikaSearch();
+                });
+            }
+
+            setupChangesPanel() {
+                document.getElementById('clearChangesBtn').addEventListener('click', () => this.clearChanges());
+                document.getElementById('submitChangesBtn').addEventListener('click', () => this.showSubmitModal());
+                document.getElementById('modalClose').addEventListener('click', () => this.hideModal());
+                document.getElementById('modalCancel').addEventListener('click', () => this.hideModal());
+                document.getElementById('modalOverlay').addEventListener('click', () => this.hideModal());
+                document.getElementById('modalConfirm').addEventListener('click', () => this.submitChanges());
+            }
+
+            setupDebugPanel() {
+                document.getElementById('debugSendBtn').addEventListener('click', () => this.sendDebugRequest());
+                document.getElementById('debugEndpoint').addEventListener('change', (e) => {
+                    const params = document.getElementById('debugParams');
+                    switch(e.target.value) {
+                        case '/api/videos':
+                            params.value = '{\n  "keyword": "",\n  "rank": "all",\n  "examined": "",\n  "page": 1,\n  "page_size": 20\n}';
+                            break;
+                        case '/api/video/BVxxx':
+                            params.value = '';
+                            break;
+                        case '/api/submit-changes':
+                            params.value = '{\n  "changes": [\n    {\n      "bvid": "BVxxx",\n      "ranks": ["domestic", "sv"],\n      "is_examined": true,\n      "is_republish": false\n    }\n  ]\n}';
+                            break;
+                        case '/api/calculate-rankings':
+                            params.value = '{\n  "rank": "domestic",\n  "index": 0,\n  "contain_unexamined": false,\n  "lock": false\n}';
+                            break;
                     }
+                });
+                document.getElementById('debugParams').value = '{\n  "keyword": "",\n  "rank": "all",\n  "examined": "",\n  "date": "2026-02-21",\n  "page": 1,\n  "page_size": 20\n}';
+            }
+
+            async loadVideos() {
+                const videoList = document.getElementById('videoList');
+                videoList.innerHTML = '<div class="loading">正在加载数据...</div>';
+                
+                const keyword = document.getElementById('searchKeyword').value;
+                const rank = document.getElementById('rankFilter').value;
+                const examined = document.getElementById('examinedFilter').value;
+                const bvid = document.getElementById('bvidFilter').value;
+                const dateFilter = document.getElementById('dateFilter').value;
+
+                try {
+                    let url = `/api/videos?page_size=100`;
+                    if (dateFilter) url += `&date=${dateFilter}`;
+                    if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
+                    if (rank !== 'all') url += `&rank=${rank}`;
+                    if (examined) url += `&examined=${examined}`;
+                    if (bvid) url += `&bvid=${encodeURIComponent(bvid)}`;
+
+                    const response = await fetch(url);
                     const result = await response.json();
-                    
+
                     if (!result.success) {
-                        throw new Error(result.error || '数据获取失败');
+                        throw new Error(result.error);
                     }
 
-                    this.data = result.data;
-                    this.weekRange = result.week_range;
-                    
-                    // 更新周范围显示
-                    if (this.weekRange) {
-                        document.getElementById('weekRange').textContent = 
-                            `${this.weekRange.start} - ${this.weekRange.end}`;
-                    }
-                    
+                    this.videos = result.data;
                     this.updateStats(result.stats);
                     this.renderVideos();
                 } catch (error) {
-                    console.error('加载数据失败:', error);
-                    document.getElementById('videoList').innerHTML = 
-                        `<div class="empty-state">
-                            <h3>数据加载失败</h3>
-                            <p>${error.message}</p>
-                            <p>请确保Web服务器已启动 (python web_server.py)</p>
-                        </div>`;
+                    videoList.innerHTML = `<div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <div>加载失败: ${error.message}</div>
+                    </div>`;
                 }
             }
 
-            updateStats(stats = null) {
+            updateStats(stats) {
                 if (stats) {
-                    // 使用从API返回的统计数据
-                    this.animateNumber('totalCount', stats.total);
-                    this.animateNumber('domesticCount', stats.domestic);
-                    this.animateNumber('svCount', stats.sv);
-                    this.animateNumber('utauCount', stats.utau);
-                } else {
-                    // 备用：从本地数据计算统计
-                    const total = this.data.length;
-                    const domestic = this.data.filter(item => item.ranks.includes('domestic')).length;
-                    const sv = this.data.filter(item => item.ranks.includes('sv')).length;
-                    const utau = this.data.filter(item => item.ranks.includes('utau')).length;
-
-                    this.animateNumber('totalCount', total);
-                    this.animateNumber('domesticCount', domestic);
-                    this.animateNumber('svCount', sv);
-                    this.animateNumber('utauCount', utau);
+                    document.getElementById('totalCount').textContent = stats.total || 0;
+                    document.getElementById('domesticCount').textContent = stats.domestic || 0;
+                    document.getElementById('svCount').textContent = stats.sv || 0;
+                    document.getElementById('utauCount').textContent = stats.utau || 0;
+                    document.getElementById('uncheckCount').textContent = stats.uncheck || 0;
+                    return;
                 }
-            }
+                
+                const total = this.videos.length;
+                const domestic = this.videos.filter(v => v.ranks.includes('domestic')).length;
+                const sv = this.videos.filter(v => v.ranks.includes('sv')).length;
+                const utau = this.videos.filter(v => v.ranks.includes('utau')).length;
+                const uncheck = this.videos.filter(v => !v.is_examined).length;
 
-            animateNumber(elementId, target) {
-                const element = document.getElementById(elementId);
-                const duration = 1000;
-                const start = 0;
-                const startTime = performance.now();
-
-                const animate = (currentTime) => {
-                    const elapsed = currentTime - startTime;
-                    const progress = Math.min(elapsed / duration, 1);
-                    const current = Math.floor(start + (target - start) * progress);
-                    element.textContent = current;
-
-                    if (progress < 1) {
-                        requestAnimationFrame(animate);
-                    }
-                };
-
-                requestAnimationFrame(animate);
-            }
-
-            getFilteredData() {
-                if (this.currentFilter === 'all') {
-                    return this.data;
-                } else if (this.currentFilter === 'new') {
-                    return this.data.filter(item => !item.is_republish);
-                } else {
-                    return this.data.filter(item => item.ranks.includes(this.currentFilter));
-                }
+                document.getElementById('totalCount').textContent = total;
+                document.getElementById('domesticCount').textContent = domestic;
+                document.getElementById('svCount').textContent = sv;
+                document.getElementById('utauCount').textContent = utau;
+                document.getElementById('uncheckCount').textContent = uncheck;
             }
 
             renderVideos() {
                 const videoList = document.getElementById('videoList');
-                const filteredData = this.getFilteredData();
-
-                if (filteredData.length === 0) {
-                    videoList.innerHTML = '<div class="empty-state"><h3>暂无数据</h3><p>当前筛选条件下没有视频</p></div>';
+                
+                if (this.videos.length === 0) {
+                    videoList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div>暂无数据</div></div>';
                     return;
                 }
 
-                videoList.innerHTML = filteredData.map((video, index) => this.createVideoItem(video, index + 1)).join('');
+                videoList.innerHTML = this.videos.map((video, index) => this.createVideoCard(video, index)).join('');
             }
 
-            createVideoItem(video, rank) {
-                const formatDuration = (seconds) => {
-                    const minutes = Math.floor(seconds / 60);
-                    const secs = seconds % 60;
-                    return `${minutes}:${secs.toString().padStart(2, '0')}`;
-                };
+            createVideoCard(video, index) {
+                const hasChange = this.changes.has(video.bvid);
+                const changeClass = hasChange ? 'edited' : '';
+                const coverUrl = video.cover || `https://api.bilibili.com/x/vuicreenshot?bvid=${video.bvid}`;
 
-                const createTags = () => {
-                    const tags = [];
-                    video.ranks.forEach(rank => {
-                        const rankMap = {
-                            'domestic': '国产',
-                            'sv': 'SV', 
-                            'utau': 'UTAU'
-                        };
-                        tags.push(`<span class="tag ${rank}">${rankMap[rank]}</span>`);
-                    });
-                    if (video.is_republish) {
-                        tags.push('<span class="tag">转载</span>');
-                    }
-                    return tags.join('');
-                };
+                const rankTags = video.ranks.map(r => 
+                    `<span class="tag tag-rank-${r}">${r === 'domestic' ? '国产' : r === 'sv' ? 'SV' : 'UTAU'}</span>`
+                ).join('');
+                
+                const statusTag = video.is_examined 
+                    ? '<span class="tag tag-examined">已收录</span>' 
+                    : '<span class="tag tag-uncheck">待收录</span>';
+                
+                const republishTag = video.is_republish 
+                    ? '<span class="tag tag-republish">转载</span>' 
+                    : '';
 
                 return `
-                    <div class="video-item" onclick="window.open('https://www.bilibili.com/video/${video.bvid}', '_blank')">
-                        <div class="video-rank">#${rank}</div>
-                        <div class="video-title">${video.title}</div>
-                        <div class="video-meta">
-                            <span class="video-uploader">${video.uploader}</span>
-                            <span>时长: ${formatDuration(video.duration)}</span>
-                            <span>${video.pubdate}</span>
-                        </div>
-                        <div class="video-tags">
-                            ${createTags()}
+                    <div class="video-item ${changeClass}" data-bvid="${video.bvid}">
+                        <div class="video-content">
+                            <img class="video-cover" src="${coverUrl}" alt="封面" 
+                                onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 160 90%22><rect fill=%22%23e2e8f0%22 width=%22160%22 height=%2290%22/><text fill=%22%2394a3b8%22 x=%2280%22 y=%2245%22 text-anchor=%22middle%22>无封面</text></svg>'"
+                                onclick="window.open('https://www.bilibili.com/video/${video.bvid}', '_blank')">
+                            <div class="video-info">
+                                <div class="video-title">${video.title}</div>
+                                <div class="video-meta">
+                                    <span class="video-meta-item">
+                                        <span class="video-uploader">${video.uploader}</span>
+                                    </span>
+                                    <span class="video-meta-item">⏱ ${this.formatDuration(video.duration)}</span>
+                                    <span class="video-meta-item">📅 ${video.pubdate}</span>
+                                </div>
+                                <div class="video-tags">
+                                    ${rankTags}
+                                    ${statusTag}
+                                    ${republishTag}
+                                </div>
+                                <div class="video-actions">
+                                    <button class="btn btn-primary btn-sm" onclick="app.openEditPanel('${video.bvid}')">✏️ 编辑</button>
+                                    <button class="btn btn-secondary btn-sm" onclick="window.open('https://www.bilibili.com/video/${video.bvid}', '_blank')">🔗 跳转</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
             }
+
+            formatDuration(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+
+            openEditPanel(bvid) {
+                const video = this.videos.find(v => v.bvid === bvid);
+                if (!video) return;
+
+                const change = this.changes.get(bvid) || { ...video };
+                
+                const panel = document.createElement('div');
+                panel.className = 'edit-panel open';
+                panel.id = 'editPanel';
+                panel.innerHTML = `
+                    <div class="edit-panel-header">
+                        <div class="edit-panel-title">编辑: ${video.bvid}</div>
+                        <button class="edit-panel-close" onclick="app.closeEditPanel()">&times;</button>
+                    </div>
+                    <div class="edit-panel-body">
+                        <div class="form-group">
+                            <label class="form-label">标题</label>
+                            <input class="input" value="${change.title}" readonly style="width: 100%;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">UP主</label>
+                            <input class="input" value="${change.uploader}" readonly style="width: 100%;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">收录期刊</label>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label" id="rank-domestic">
+                                    <input type="checkbox" ${change.ranks.includes('domestic') ? 'checked' : ''} onchange="app.toggleRank('domestic')">
+                                    国产类
+                                </label>
+                                <label class="checkbox-label" id="rank-sv">
+                                    <input type="checkbox" ${change.ranks.includes('sv') ? 'checked' : ''} onchange="app.toggleRank('sv')">
+                                    SV类
+                                </label>
+                                <label class="checkbox-label" id="rank-utau">
+                                    <input type="checkbox" ${change.ranks.includes('utau') ? 'checked' : ''} onchange="app.toggleRank('utau')">
+                                    UTAU类
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">搬运标记</label>
+                            <div class="form-row">
+                                <label class="checkbox-label" id="republish-label">
+                                    <input type="checkbox" ${change.is_republish ? 'checked' : ''} id="isRepublish" onchange="app.updateRepublish()">
+                                    转载
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Staff信息</label>
+                            <input class="input" id="staffInfo" value="${change.staff_info || ''}" style="width: 100%;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">收录状态</label>
+                            <div class="form-row">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" ${change.is_examined ? 'checked' : ''} id="isExamined" onchange="app.updateExamined()">
+                                    已完成收录
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="edit-panel-footer">
+                        <button class="btn btn-secondary" onclick="app.closeEditPanel()">取消</button>
+                        <button class="btn btn-primary" onclick="app.saveChange('${bvid}')">保存到本地</button>
+                    </div>
+                `;
+
+                document.body.appendChild(panel);
+                this.currentEditingBvid = bvid;
+                this.currentEditingData = { ...change };
+
+                panel.addEventListener('click', (e) => {
+                    if (e.target === panel) this.closeEditPanel();
+                });
+            }
+
+            closeEditPanel() {
+                const panel = document.getElementById('editPanel');
+                if (panel) panel.remove();
+                this.currentEditingBvid = null;
+                this.currentEditingData = null;
+            }
+
+            toggleRank(rank) {
+                const idx = this.currentEditingData.ranks.indexOf(rank);
+                if (idx >= 0) {
+                    this.currentEditingData.ranks.splice(idx, 1);
+                } else {
+                    this.currentEditingData.ranks.push(rank);
+                }
+            }
+
+            updateRepublish() {
+                this.currentEditingData.is_republish = document.getElementById('isRepublish').checked;
+            }
+
+            updateExamined() {
+                this.currentEditingData.is_examined = document.getElementById('isExamined').checked;
+            }
+
+            saveChange(bvid) {
+                const staffInfo = document.getElementById('staffInfo').value;
+                this.currentEditingData.staff_info = staffInfo;
+
+                this.changes.set(bvid, { ...this.currentEditingData });
+                this.closeEditPanel();
+                this.renderVideos();
+                this.updateChangesPanel();
+                
+                this.videos = this.videos.map(v => 
+                    v.bvid === bvid ? { ...v, ...this.currentEditingData } : v
+                );
+                this.updateStats();
+            }
+
+            updateChangesPanel() {
+                const panel = document.getElementById('changesPanel');
+                const count = document.getElementById('changesCount');
+                const list = document.getElementById('changesList');
+
+                count.textContent = this.changes.size;
+                
+                if (this.changes.size > 0) {
+                    panel.classList.add('open');
+                } else {
+                    panel.classList.remove('open');
+                }
+
+                list.innerHTML = Array.from(this.changes.entries()).map(([bvid, data]) => {
+                    const changesDesc = [];
+                    if (data.ranks && data.ranks.length) changesDesc.push(`期刊: ${data.ranks.join(', ')}`);
+                    if ('is_examined' in data) changesDesc.push(data.is_examined ? '已收录' : '未收录');
+                    if ('is_republish' in data) changesDesc.push(data.is_republish ? '转载' : '自制');
+                    if (data.staff_info) changesDesc.push(`Staff: ${data.staff_info}`);
+
+                    return `
+                        <div class="change-item">
+                            <div class="change-item-info">
+                                <div class="change-item-title">${data.title || bvid}</div>
+                                <div class="change-item-desc">${changesDesc.join(' | ')}</div>
+                            </div>
+                            <button class="change-item-remove" onclick="app.removeChange('${bvid}')">&times;</button>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            removeChange(bvid) {
+                this.changes.delete(bvid);
+                const original = this.videos.find(v => v.bvid === bvid);
+                if (original) {
+                    this.videos = this.videos.map(v => 
+                        v.bvid === bvid ? original : v
+                    );
+                }
+                this.renderVideos();
+                this.updateChangesPanel();
+                this.updateStats();
+            }
+
+            clearChanges() {
+                if (this.changes.size === 0) return;
+                this.changes.clear();
+                this.loadVideos();
+            }
+
+            showSubmitModal() {
+                if (this.changes.size === 0) return;
+                document.getElementById('submitCount').textContent = this.changes.size;
+                document.getElementById('modalOverlay').classList.add('open');
+                document.getElementById('submitModal').classList.add('open');
+            }
+
+            hideModal() {
+                document.getElementById('modalOverlay').classList.remove('open');
+                document.getElementById('submitModal').classList.remove('open');
+            }
+
+            async submitChanges() {
+                const changes = Array.from(this.changes.values()).map(c => ({
+                    avid: c.avid,
+                    bvid: c.bvid,
+                    ranks: c.ranks,
+                    is_examined: c.is_examined,
+                    is_republish: c.is_republish,
+                    staff_info: c.staff_info
+                }));
+
+                try {
+                    const response = await fetch('/api/submit-changes', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ changes })
+                    });
+                    const result = await response.json();
+
+                    if (!result.success) {
+                        alert('提交失败: ' + result.error);
+                        return;
+                    }
+
+                    alert('提交成功!');
+                    this.changes.clear();
+                    this.hideModal();
+                    this.updateChangesPanel();
+                    this.loadVideos();
+                } catch (error) {
+                    alert('提交失败: ' + error.message);
+                }
+            }
+
+            async calculateRankings() {
+                const rank = document.getElementById('previewRank').value;
+                const index = parseInt(document.getElementById('previewIndex').value) || 0;
+                const preview = document.getElementById('rankingPreview');
+                
+                preview.innerHTML = '<div class="loading">正在计算排行榜...</div>';
+
+                try {
+                    const response = await fetch('/api/calculate-rankings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ rank, index, contain_unexamined: false, lock: false })
+                    });
+                    const result = await response.json();
+
+                    if (!result.success) {
+                        preview.innerHTML = `<div class="empty-state">计算失败: ${result.error}</div>`;
+                        return;
+                    }
+
+                    preview.innerHTML = `
+                        <div class="ranking-card">
+                            <div class="ranking-header">
+                                <div class="ranking-rank">✅</div>
+                            </div>
+                            <div>${rank.toUpperCase()} 第${index}期排行榜已重新计算</div>
+                            <div style="margin-top: 0.5rem; color: var(--gray-500); font-size: 0.875rem;">
+                                包含未收录稿件: 否 | 锁定: 否
+                            </div>
+                        </div>
+                    `;
+                } catch (error) {
+                    preview.innerHTML = `<div class="empty-state">计算失败: ${error.message}</div>`;
+                }
+            }
+
+            async pikaSearch() {
+                const keyword = document.getElementById('pikaKeyword').value;
+                const videoList = document.getElementById('pikaVideoList');
+                
+                if (!keyword) {
+                    videoList.innerHTML = '<div class="empty-state">请输入关键字搜索</div>';
+                    return;
+                }
+
+                videoList.innerHTML = '<div class="loading">搜索中...</div>';
+
+                try {
+                    const url = `/api/videos?keyword=${encodeURIComponent(keyword)}&page_size=100`;
+                    const response = await fetch(url);
+                    const result = await response.json();
+
+                    if (!result.success) {
+                        throw new Error(result.error);
+                    }
+
+                    if (result.data.length === 0) {
+                        videoList.innerHTML = '<div class="empty-state">未找到相关稿件</div>';
+                        return;
+                    }
+
+                    videoList.innerHTML = result.data.map((video, index) => this.createVideoCard(video, index)).join('');
+                } catch (error) {
+                    videoList.innerHTML = `<div class="empty-state">搜索失败: ${error.message}</div>`;
+                }
+            }
+
+            async sendDebugRequest() {
+                const endpoint = document.getElementById('debugEndpoint').value;
+                const paramsStr = document.getElementById('debugParams').value;
+                const output = document.getElementById('debugOutput');
+
+                output.className = 'debug-output';
+                output.textContent = '发送请求中...';
+
+                try {
+                    let url = endpoint;
+                    let options = { method: 'GET' };
+
+                    if (endpoint === '/api/video/BVxxx') {
+                        url = `/api/video/BVxxxxxx`;
+                    } else if (endpoint === '/api/submit-changes' || endpoint === '/api/calculate-rankings') {
+                        options = {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: paramsStr || '{}'
+                        };
+                    } else if (endpoint === '/api/videos' && paramsStr) {
+                        const params = JSON.parse(paramsStr);
+                        const query = new URLSearchParams(params).toString();
+                        url = `/api/videos?${query}`;
+                    }
+
+                    const startTime = performance.now();
+                    const response = await fetch(url, options);
+                    const endTime = performance.now();
+
+                    const result = await response.json();
+                    const duration = (endTime - startTime).toFixed(0);
+
+                    output.className = 'debug-output success';
+                    output.textContent = `[${response.status}] ${duration}ms\n\n${JSON.stringify(result, null, 2)}`;
+                } catch (error) {
+                    output.className = 'debug-output error';
+                    output.textContent = `请求失败: ${error.message}`;
+                }
+            }
         }
 
-        // 初始化应用
-        document.addEventListener('DOMContentLoaded', () => {
-            new WeeklyInfo();
-        });
+        const app = new CVSEApp();
     </script>
 </body>
 </html>
