@@ -1110,6 +1110,7 @@
         class CVSEApp {
             constructor() {
                 this.videos = [];
+                this.originalVideos = new Map();
                 this.changes = new Map();
                 this.currentPage = 'recording';
                 this.init();
@@ -1195,7 +1196,7 @@
                 const dateFilter = document.getElementById('dateFilter').value;
 
                 try {
-                    let url = `/api/videos?page_size=100`;
+                    let url = `/api/videos?page_size=500`;
                     if (dateFilter) url += `&date=${dateFilter}`;
                     if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
                     if (rank !== 'all') url += `&rank=${rank}`;
@@ -1257,7 +1258,7 @@
             createVideoCard(video, index) {
                 const hasChange = this.changes.has(video.bvid);
                 const changeClass = hasChange ? 'edited' : '';
-                const coverUrl = video.cover || `https://api.bilibili.com/x/vuicreenshot?bvid=${video.bvid}`;
+                const coverUrl = video.cover || `https://player.bilibili.com/player.html?bvid=${video.bvid}&page=1`;
 
                 const rankTags = video.ranks.map(r => 
                     `<span class="tag tag-rank-${r}">${r === 'domestic' ? '国产' : r === 'sv' ? 'SV' : 'UTAU'}</span>`
@@ -1275,7 +1276,7 @@
                     <div class="video-item ${changeClass}" data-bvid="${video.bvid}">
                         <div class="video-content">
                             <img class="video-cover" src="${coverUrl}" alt="封面" 
-                                onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 160 90%22><rect fill=%22%23e2e8f0%22 width=%22160%22 height=%2290%22/><text fill=%22%2394a3b8%22 x=%2280%22 y=%2245%22 text-anchor=%22middle%22>无封面</text></svg>'"
+                                onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 160 90%22><rect fill=%22%23e2e8f0%22 width=%22160%22 height=%2290%22/><text fill=%22%2394a3b8%22 x=%2280%22 y=%2245%22 text-anchor=%22middle%22>无封面</text></svg>'"
                                 onclick="window.open('https://www.bilibili.com/video/${video.bvid}', '_blank')">
                             <div class="video-info">
                                 <div class="video-title">${video.title}</div>
@@ -1413,6 +1414,13 @@
                 const staffInfo = document.getElementById('staffInfo').value;
                 this.currentEditingData.staff_info = staffInfo;
 
+                if (!this.originalVideos.has(bvid)) {
+                    const original = this.videos.find(v => v.bvid === bvid);
+                    if (original) {
+                        this.originalVideos.set(bvid, { ...original });
+                    }
+                }
+
                 this.changes.set(bvid, { ...this.currentEditingData });
                 this.closeEditPanel();
                 this.renderVideos();
@@ -1458,11 +1466,19 @@
 
             removeChange(bvid) {
                 this.changes.delete(bvid);
-                const original = this.videos.find(v => v.bvid === bvid);
+                const original = this.originalVideos.get(bvid);
                 if (original) {
                     this.videos = this.videos.map(v => 
-                        v.bvid === bvid ? original : v
+                        v.bvid === bvid ? { ...original } : v
                     );
+                    this.originalVideos.delete(bvid);
+                } else {
+                    const originalVideo = this.videos.find(v => v.bvid === bvid);
+                    if (originalVideo) {
+                        this.videos = this.videos.map(v => 
+                            v.bvid === bvid ? { ...originalVideo } : v
+                        );
+                    }
                 }
                 this.renderVideos();
                 this.updateChangesPanel();
@@ -1471,8 +1487,18 @@
 
             clearChanges() {
                 if (this.changes.size === 0) return;
+                
+                for (const [bvid, original] of this.originalVideos.entries()) {
+                    this.videos = this.videos.map(v => 
+                        v.bvid === bvid ? { ...original } : v
+                    );
+                }
+                
                 this.changes.clear();
-                this.loadVideos();
+                this.originalVideos.clear();
+                this.renderVideos();
+                this.updateChangesPanel();
+                this.updateStats();
             }
 
             showSubmitModal() {
