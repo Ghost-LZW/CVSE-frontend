@@ -170,12 +170,22 @@ async def submit_changes_async(changes):
 
     modify_entries = []
     for change in changes:
+        ranks_input = change.get("ranks")
+        if ranks_input:
+            ranks_list = []
+            for r in ranks_input:
+                if isinstance(r, int):
+                    r = str(r)
+                if isinstance(r, str):
+                    ranks_list.append(Rank[r.upper()])
+            ranks = ranks_list if ranks_list else None
+        else:
+            ranks = None
+            
         entry = {
             "avid": change.get("avid", ""),
             "bvid": change.get("bvid", ""),
-            "ranks": [Rank[r.upper()] for r in change.get("ranks", [])]
-            if change.get("ranks")
-            else None,
+            "ranks": ranks,
             "is_republish": change.get("is_republish")
             if "is_republish" in change
             else None,
