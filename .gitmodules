@@ -1,0 +1,3 @@
+[submodule "rpc_tools"]
+	path = rpc_tools
+	url = https://github.com/yhtq/CVSE-GatheringTools.git
