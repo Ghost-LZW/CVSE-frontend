@@ -2,6 +2,8 @@
 """
 CVSE Web Server - Enhanced Version
 Supports recording, preview, API debugging, offline changes
+
+Copyright (c) 2026 milkboy, yhtq
 """
 
 import asyncio
@@ -11,22 +13,25 @@ import sys
 from datetime import datetime, timedelta
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from waitress import serve
 
 app = Flask(__name__)
 CORS(app)
 
-current_script_path = os.path.abspath(__file__)
-sys.path.append(
-    os.path.join(os.path.dirname(current_script_path), "CVSE-GatheringTools")
-)
-sys.path.append(
-    os.path.join(os.path.dirname(current_script_path), "CVSE-GatheringTools/CVSE-API")
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=["100 per minute"],
 )
 
+current_script_path = os.path.abspath(__file__)
+
 import capnp
-import CVSE_capnp
-from api_client import (
+from rpc_tools.api_client import (
     CVSE_Client,
+    ModifyEntry,
     RPCTime,
     Rank,
     RankProtocol,
@@ -34,6 +39,8 @@ from api_client import (
     Rank_to_capnp,
     ModifyEntry_to_capnp,
     Index_to_capnp,
+    av_to_index,
+    bv_to_index
 )
 
 CVSE_HOST = "47.104.152.246"
@@ -79,7 +86,15 @@ def format_video_entry(entry):
     }
 
 
-async def get_videos_async(keyword, rank_filter, examined, bvid, avid, page, page_size, date_str=None):
+async def get_videos_async(
+        keyword: str | None, 
+        rank_filter: str | None, 
+        examined: str, 
+        bvid: str | None, 
+        avid: str | None, 
+        page: int, 
+        page_size: int, 
+        date_str: str | None = None):
     """Get videos from CVSE server"""
     now = datetime.now()
     
@@ -166,11 +181,11 @@ async def get_videos_async(keyword, rank_filter, examined, bvid, avid, page, pag
     }
 
 
-async def get_video_async(bvid):
+async def get_video_async(bvid: str):
     """Get single video by bvid"""
     client = await CVSE_Client.create(CVSE_HOST, CVSE_PORT)
 
-    indices = [Index_to_capnp({"avid": "", "bvid": bvid})]
+    indices = [Index_to_capnp(bv_to_index(bvid))]
     videos = await client.lookupMetaInfo(indices)
 
     if not videos:
@@ -179,7 +194,7 @@ async def get_video_async(bvid):
     return format_video_entry(videos[0])
 
 
-async def submit_changes_async(changes):
+async def submit_changes_async(changes: list[dict]):
     """Submit batch changes to CVSE server"""
     client = await CVSE_Client.create(CVSE_HOST, CVSE_PORT)
 
@@ -196,18 +211,17 @@ async def submit_changes_async(changes):
             ranks = ranks_list if ranks_list else None
         else:
             ranks = None
-            
-        entry = {
-            "avid": change.get("avid", ""),
-            "bvid": change.get("bvid", ""),
+        
+        assert "avid" in change, "Each change must include 'avid'"
+        assert "bvid" in change, "Each change must include 'bvid'"
+        
+        entry: ModifyEntry = {
+            "avid": change["avid"],
+            "bvid": change["bvid"],
             "ranks": ranks,
-            "is_republish": change.get("is_republish")
-            if "is_republish" in change
-            else None,
+            "is_republish": change.get("is_republish"),
             "staff": change.get("staff_info"),
-            "is_examined": change.get("is_examined")
-            if "is_examined" in change
-            else None,
+            "is_examined": change.get("is_examined"),
         }
         modify_entries.append(ModifyEntry_to_capnp(entry))
 
@@ -215,12 +229,22 @@ async def submit_changes_async(changes):
     return len(changes)
 
 
-async def calculate_rankings_async(rank_name, index, contain_unexamined, lock):
-    """Calculate rankings"""
+async def reCalculate_rankings_async(rank_name: str, index: int, contain_unexamined: bool, lock: bool):
+    """recalculate rankings"""
     rank = Rank[rank_name.upper()]
     client = await CVSE_Client.create(CVSE_HOST, CVSE_PORT)
     await client.reCalculateRankings(rank, index, contain_unexamined, lock)
-    return f"Calculated rankings for {rank_name}"
+    return f"Recalculated rankings for {rank_name}"
+
+async def check_if_calculated(rank_name: str, index: int, contain_unexamined: bool):
+    """check if rankings are calculated"""
+    rank = Rank[rank_name.upper()]
+    client = await CVSE_Client.create(CVSE_HOST, CVSE_PORT)
+    try:
+        await client.lookupRankingMetaInfo(rank, index, contain_unexamined)
+        return True
+    except Exception:
+        return False
 
 
 @app.route("/")
@@ -231,6 +255,7 @@ def index():
 
 
 @app.route("/api/health")
+@limiter.limit("120 per minute")
 def health():
     """API: Health check"""
     return jsonify(
@@ -243,6 +268,7 @@ def health():
 
 
 @app.route("/api/videos", methods=["GET"])
+@limiter.limit("30 per minute")
 def get_videos():
     """API: Get videos with filters"""
     try:
@@ -279,6 +305,7 @@ def get_videos():
 
 
 @app.route("/api/video/<bvid>", methods=["GET"])
+@limiter.limit("60 per minute")
 def get_video(bvid):
     """API: Get single video by bvid"""
     try:
@@ -293,6 +320,7 @@ def get_video(bvid):
 
 
 @app.route("/api/submit-changes", methods=["POST"])
+@limiter.limit("10 per minute")
 def submit_changes():
     """API: Submit batch changes to CVSE server"""
     try:
@@ -310,8 +338,12 @@ def submit_changes():
 
 
 @app.route("/api/calculate-rankings", methods=["POST"])
+@limiter.limit("1 per minute")
 def calculate_rankings():
-    """API: Calculate rankings for a specific rank"""
+    """
+        API: Calculate rankings for a specific rank
+        Costly operation, should be used with caution.
+    """
     try:
         data = request.get_json()
         rank_name = data.get("rank", "domestic")
@@ -321,7 +353,7 @@ def calculate_rankings():
 
         message = asyncio.run(
             capnp.run(
-                calculate_rankings_async(rank_name, index, contain_unexamined, lock)
+                reCalculate_rankings_async(rank_name, index, contain_unexamined, lock)
             )
         )
 
@@ -331,6 +363,7 @@ def calculate_rankings():
 
 
 @app.route("/api/debug", methods=["GET", "POST"])
+@limiter.limit("20 per minute")
 def api_debug():
     """API: Debug endpoint to test raw CVSE API calls"""
     try:
@@ -360,8 +393,9 @@ def api_debug():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-if __name__ == "__main__":
+def main():
+    host = os.getenv("CVSE_SERVER_HOST", "0.0.0.0")
+    port = int(os.getenv("CVSE_SERVER_PORT", "25123"))
     print("Starting CVSE server (Enhanced Version)...")
-    print("Visit: http://localhost:5123")
-    app.run(host="::", port=5123, debug=True)
-    # app.run(host="0.0.0.0", port=5123, debug=True)
+    print(f"Visit: http://{host}:{port}")
+    serve(app, host=host, port=port)

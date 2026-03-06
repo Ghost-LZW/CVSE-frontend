@@ -5,7 +5,9 @@
 dependencies = [
     "flask",
     "flask-cors",
+    "flask-limiter",
     "pycapnp",
+    "waitress",
 ]
 requires-python = "==3.13.*"
 name = "CVSE-frontend-main"
@@ -19,3 +21,6 @@ license = {text = "MIT"}
 
 [tool.pdm]
 distribution = false
+
+[tool.pdm.scripts]
+server = {call = "server:main"}
