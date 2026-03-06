@@ -5,8 +5,9 @@ Simplified CVSE video data display system that fetches real server data.
 ## Quick Start
 
 ### 1. Install Dependencies
-pdm: https://pdm-project.org/en/latest/
+Install pdm: https://pdm-project.org/en/latest/
 ```bash
+git submodule update --init --recursive
 pdm install 
 ```
 
