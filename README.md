@@ -34,3 +34,8 @@ pdm run server
 - 🎯 Filter videos by category
 - 🔗 Click to jump to Bilibili page
 - 📱 Responsive design
+
+## TODO
+
+- 添加 CORS 解决封面显示问题
+- 完成皮卡挑选，预览校审（注意预览校审逻辑是如果有已经计算好的数据，直接展示，只有用户提出请求时才重新计算。重新计算开销极大，大约需要运行几分钟，需要合理设计/设置权限防止浪费服务器资源）
