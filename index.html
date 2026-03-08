@@ -1505,7 +1505,7 @@
             createVideoCard(video, index) {
                 const hasChange = this.changes.has(video.bvid);
                 const changeClass = hasChange ? 'edited' : '';
-                const coverUrl = video.cover || `https://player.bilibili.com/player.html?bvid=${video.bvid}&page=1`;
+                const coverUrl = video.cover ? `/api/proxy-image?url=${encodeURIComponent(video.cover)}` : `https://player.bilibili.com/player.html?bvid=${video.bvid}&page=1`;
 
                 const rankTags = video.ranks.map(r => 
                     `<span class="tag tag-rank-${r}">${r === 'domestic' ? '国产' : r === 'sv' ? 'SV' : 'UTAU'}</span>`
@@ -1892,7 +1892,7 @@
                                         <div class="ranking-score">评分: ${e.totalScore.toFixed(1)}</div>
                                     </div>
                                     <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
-                                        <img src="${e.cover || ''}" style="width: 120px; height: 68px; object-fit: cover; border-radius: 4px; background: var(--gray-200);" 
+                                        <img src="${e.cover ? '/api/proxy-image?url=' + encodeURIComponent(e.cover) : ''}" style="width: 120px; height: 68px; object-fit: cover; border-radius: 4px; background: var(--gray-200);" 
                                             onerror="this.style.display='none'"
                                             onclick="window.open('https://www.bilibili.com/video/${e.bvid}', '_blank')"
                                             title="点击打开B站视频">

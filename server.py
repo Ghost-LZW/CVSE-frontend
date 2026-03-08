@@ -557,3 +557,21 @@ def main():
     print("Starting CVSE server (Enhanced Version)...")
     print(f"Visit: http://{host}:{port}")
     serve(app, host=host, port=port)
+
+
+@app.route("/api/proxy-image")
+def proxy_image():
+    """Proxy BiliBili images to avoid CORS issues"""
+    import requests
+    url = request.args.get("url")
+    if not url:
+        return "Missing url parameter", 400
+    
+    try:
+        resp = requests.get(url, headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "Referer": "https://www.bilibili.com"
+        }, timeout=10)
+        return Response(resp.content, mimetype=resp.headers.get("Content-Type", "image/jpeg"))
+    except Exception as e:
+        return str(e), 500
