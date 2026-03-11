@@ -202,20 +202,17 @@ async def submit_changes_async(changes: list[dict], auth_key: str | None = None)
     modify_entries = []
     for change in changes:
         ranks_input = change.get("ranks")
-        if ranks_input:
-            ranks_list = []
-            for r in ranks_input:
-                if isinstance(r, int):
-                    r = str(r)
-                if isinstance(r, str):
-                    ranks_list.append(Rank[r.upper()])
-            ranks = ranks_list if ranks_list else None
-        else:
-            ranks = None
-        
+        ranks_list = []
+        for r in ranks_input:
+            if isinstance(r, int):
+                r = str(r)
+            if isinstance(r, str):
+                ranks_list.append(Rank[r.upper()])
+        ranks = ranks_list
+
         assert "avid" in change, "Each change must include 'avid'"
         assert "bvid" in change, "Each change must include 'bvid'"
-        
+
         entry: ModifyEntry = {
             "avid": change["avid"],
             "bvid": change["bvid"],
