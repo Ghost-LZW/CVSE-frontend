@@ -290,7 +290,7 @@ def validate_auth():
         async def test_auth():
             client = await CVSE_Client.create(CVSE_HOST, CVSE_PORT, auth_key)
             try:
-                await client.lookupRankingMetaInfo(Rank.DOMESTIC, 1, False)
+                await client.lookupRankingMetaInfo(Rank.UTAU, 1, True)
                 return True
             except Exception:
                 return False
