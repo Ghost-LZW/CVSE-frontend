@@ -32,6 +32,7 @@
             --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
             --radius: 0.5rem;
             --radius-lg: 0.75rem;
+            --changes-panel-offset: 0px;
         }
 
         * {
@@ -119,7 +120,8 @@
         .main-container {
             max-width: 1600px;
             margin: 0 auto;
-            padding: 1.5rem;
+            padding: 1.5rem 1.5rem calc(1.5rem + var(--changes-panel-offset));
+            transition: padding-bottom 0.3s ease;
         }
 
         .page {
@@ -895,6 +897,66 @@
             color: var(--gray-500);
         }
 
+        .ranking-summary-card {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, #eff6ff, #f8fafc);
+            border-color: #bfdbfe;
+        }
+
+        .ranking-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .ranking-summary-item {
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            padding: 0.75rem;
+        }
+
+        .ranking-summary-item-label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            margin-bottom: 0.25rem;
+        }
+
+        .ranking-summary-item-value {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+
+        .ranking-note {
+            margin-top: 0.75rem;
+            color: var(--gray-600);
+            font-size: 0.875rem;
+        }
+
+        .ranking-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 0.5rem;
+            line-height: 1.5;
+        }
+
+        .ranking-meta {
+            color: var(--gray-600);
+            font-size: 0.875rem;
+            line-height: 1.6;
+        }
+
+        .ranking-stats {
+            margin-top: 0.75rem;
+            color: var(--gray-700);
+            font-size: 0.875rem;
+            line-height: 1.6;
+        }
+
         @media (max-width: 768px) {
             .header-content {
                 flex-direction: column;
@@ -1020,11 +1082,11 @@
                             <option value="utau">UTAU类</option>
                         </select>
                         <input type="number" class="input" id="previewIndex" placeholder="期数" value="0" style="width: 80px;">
-                        <button class="btn btn-primary" id="calculateBtn">🧮 计算排行榜</button>
+                        <button class="btn btn-primary" id="calculateBtn">🧮 刷新并预览</button>
                     </div>
                 </div>
                 <div class="ranking-preview" id="rankingPreview">
-                    <div class="empty-state">点击"计算排行榜"获取预览数据</div>
+                    <div class="empty-state">点击"刷新并预览"获取校审结果</div>
                 </div>
             </div>
         </div>
@@ -1109,9 +1171,12 @@
     <script>
         class CVSEApp {
             constructor() {
+                this.allVideos = [];
                 this.videos = [];
                 this.originalVideos = new Map();
                 this.changes = new Map();
+                this.coverCache = new Map();
+                this.pendingCoverLoads = new Set();
                 this.currentPage = 'recording';
                 this.init();
             }
@@ -1121,6 +1186,7 @@
                 this.setupFilters();
                 this.setupChangesPanel();
                 this.setupDebugPanel();
+                window.addEventListener('resize', () => this.syncChangesPanelOffset());
                 this.loadVideos();
             }
 
@@ -1178,7 +1244,7 @@
                             params.value = '{\n  "changes": [\n    {\n      "bvid": "BVxxx",\n      "ranks": ["domestic", "sv"],\n      "is_examined": true,\n      "is_republish": false\n    }\n  ]\n}';
                             break;
                         case '/api/calculate-rankings':
-                            params.value = '{\n  "rank": "domestic",\n  "index": 0,\n  "contain_unexamined": false,\n  "lock": false\n}';
+                            params.value = '{\n  "rank": "domestic",\n  "index": 0,\n  "contain_unexamined": false,\n  "lock": false,\n  "refresh": true,\n  "limit": 30\n}';
                             break;
                     }
                 });
@@ -1188,20 +1254,11 @@
             async loadVideos() {
                 const videoList = document.getElementById('videoList');
                 videoList.innerHTML = '<div class="loading">正在加载数据...</div>';
-                
-                const keyword = document.getElementById('searchKeyword').value;
-                const rank = document.getElementById('rankFilter').value;
-                const examined = document.getElementById('examinedFilter').value;
-                const bvid = document.getElementById('bvidFilter').value;
                 const dateFilter = document.getElementById('dateFilter').value;
 
                 try {
                     let url = `/api/videos?page_size=500`;
                     if (dateFilter) url += `&date=${dateFilter}`;
-                    if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
-                    if (rank !== 'all') url += `&rank=${rank}`;
-                    if (examined) url += `&examined=${examined}`;
-                    if (bvid) url += `&bvid=${encodeURIComponent(bvid)}`;
 
                     const response = await fetch(url);
                     const result = await response.json();
@@ -1210,9 +1267,8 @@
                         throw new Error(result.error);
                     }
 
-                    this.videos = result.data;
-                    this.updateStats(result.stats);
-                    this.renderVideos();
+                    this.allVideos = result.data.map(video => this.cloneVideoData(video));
+                    this.applyFilters();
                 } catch (error) {
                     videoList.innerHTML = `<div class="empty-state">
                         <div class="empty-state-icon">❌</div>
@@ -1231,11 +1287,11 @@
                     return;
                 }
                 
-                const total = this.videos.length;
-                const domestic = this.videos.filter(v => v.ranks.includes('domestic')).length;
-                const sv = this.videos.filter(v => v.ranks.includes('sv')).length;
-                const utau = this.videos.filter(v => v.ranks.includes('utau')).length;
-                const uncheck = this.videos.filter(v => !v.is_examined).length;
+                const total = this.allVideos.length;
+                const domestic = this.allVideos.filter(v => v.ranks.includes('domestic')).length;
+                const sv = this.allVideos.filter(v => v.ranks.includes('sv')).length;
+                const utau = this.allVideos.filter(v => v.ranks.includes('utau')).length;
+                const uncheck = this.allVideos.filter(v => !v.is_examined).length;
 
                 document.getElementById('totalCount').textContent = total;
                 document.getElementById('domesticCount').textContent = domestic;
@@ -1253,12 +1309,13 @@
                 }
 
                 videoList.innerHTML = this.videos.map((video, index) => this.createVideoCard(video, index)).join('');
+                this.loadMissingCovers(this.videos);
             }
 
             createVideoCard(video, index) {
                 const hasChange = this.changes.has(video.bvid);
                 const changeClass = hasChange ? 'edited' : '';
-                const coverUrl = video.cover || `https://player.bilibili.com/player.html?bvid=${video.bvid}&page=1`;
+                const coverUrl = this.getCoverSrc(video);
 
                 const rankTags = video.ranks.map(r => 
                     `<span class="tag tag-rank-${r}">${r === 'domestic' ? '国产' : r === 'sv' ? 'SV' : 'UTAU'}</span>`
@@ -1275,8 +1332,8 @@
                 return `
                     <div class="video-item ${changeClass}" data-bvid="${video.bvid}">
                         <div class="video-content">
-                            <img class="video-cover" src="${coverUrl}" alt="封面" 
-                                onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 160 90%22><rect fill=%22%23e2e8f0%22 width=%22160%22 height=%2290%22/><text fill=%22%2394a3b8%22 x=%2280%22 y=%2245%22 text-anchor=%22middle%22>无封面</text></svg>'"
+                            <img class="video-cover" src="${coverUrl}" alt="封面" data-cover-bvid="${video.bvid}"
+                                onerror="app.handleCoverError(this)"
                                 onclick="window.open('https://www.bilibili.com/video/${video.bvid}', '_blank')">
                             <div class="video-info">
                                 <div class="video-title">${video.title}</div>
@@ -1308,11 +1365,225 @@
                 return `${mins}:${secs.toString().padStart(2, '0')}`;
             }
 
+            cloneVideoData(video) {
+                return {
+                    ...video,
+                    ranks: Array.isArray(video.ranks) ? [...video.ranks] : []
+                };
+            }
+
+            getCurrentFilters() {
+                return {
+                    date: document.getElementById('dateFilter').value,
+                    keyword: document.getElementById('searchKeyword').value.trim().toLowerCase(),
+                    rank: document.getElementById('rankFilter').value,
+                    examined: document.getElementById('examinedFilter').value,
+                    bvid: document.getElementById('bvidFilter').value.trim().toLowerCase()
+                };
+            }
+
+            matchesFilters(video, filters) {
+                if (filters.date && !String(video.pubdate || '').startsWith(filters.date)) {
+                    return false;
+                }
+
+                if (filters.keyword) {
+                    const haystack = `${video.title || ''} ${video.uploader || ''}`.toLowerCase();
+                    if (!haystack.includes(filters.keyword)) {
+                        return false;
+                    }
+                }
+
+                if (filters.rank !== 'all') {
+                    if (filters.rank === 'unrecorded') {
+                        if (video.ranks.length !== 0) {
+                            return false;
+                        }
+                    } else if (!video.ranks.includes(filters.rank)) {
+                        return false;
+                    }
+                }
+
+                if (filters.examined === 'yes' && !video.is_examined) {
+                    return false;
+                }
+
+                if (filters.examined === 'no' && video.is_examined) {
+                    return false;
+                }
+
+                if (filters.bvid && !String(video.bvid || '').toLowerCase().includes(filters.bvid)) {
+                    return false;
+                }
+
+                return true;
+            }
+
+            applyFilters() {
+                const filters = this.getCurrentFilters();
+                this.videos = this.allVideos.filter(video => this.matchesFilters(video, filters));
+                this.renderVideos();
+                this.updateStats();
+            }
+
+            getPlaceholderCover() {
+                return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 90'%3E%3Crect fill='%23e2e8f0' width='160' height='90'/%3E%3Ctext fill='%2394a3b8' x='80' y='45' text-anchor='middle' dominant-baseline='middle'%3E%E6%97%A0%E5%B0%81%E9%9D%A2%3C/text%3E%3C/svg%3E";
+            }
+
+            normalizeCoverUrl(cover) {
+                if (!cover) return '';
+                if (cover.startsWith('//')) return `https:${cover}`;
+                return cover;
+            }
+
+            getCoverSrc(video) {
+                return this.coverCache.get(video.bvid) || this.normalizeCoverUrl(video.cover) || this.getPlaceholderCover();
+            }
+
+            handleCoverError(image) {
+                image.onerror = null;
+                image.src = this.getPlaceholderCover();
+            }
+
+            async loadMissingCovers(videos) {
+                const missingVideos = videos.filter(video =>
+                    !this.normalizeCoverUrl(video.cover) &&
+                    !this.coverCache.has(video.bvid) &&
+                    !this.pendingCoverLoads.has(video.bvid)
+                );
+
+                for (let index = 0; index < missingVideos.length; index += 8) {
+                    const batch = missingVideos.slice(index, index + 8);
+                    await Promise.allSettled(batch.map(video => this.fetchVideoCover(video.bvid)));
+                }
+            }
+
+            async fetchVideoCover(bvid) {
+                this.pendingCoverLoads.add(bvid);
+
+                try {
+                    const response = await fetch(`/api/video/${encodeURIComponent(bvid)}`);
+                    const result = await response.json();
+                    const cover = this.normalizeCoverUrl(result?.data?.cover);
+                    if (!result.success || !cover) {
+                        return;
+                    }
+
+                    this.coverCache.set(bvid, cover);
+                    this.allVideos = this.allVideos.map(video =>
+                        video.bvid === bvid ? { ...video, cover } : video
+                    );
+
+                    document.querySelectorAll(`img[data-cover-bvid="${bvid}"]`).forEach(image => {
+                        image.src = cover;
+                    });
+                } catch (error) {
+                    console.warn(`封面补全失败: ${bvid}`, error);
+                } finally {
+                    this.pendingCoverLoads.delete(bvid);
+                }
+            }
+
+            formatNumber(value) {
+                return new Intl.NumberFormat('zh-CN').format(Number(value || 0));
+            }
+
+            formatPreviewPosition(entry) {
+                const positionLabel = entry.rank_position === 'main'
+                    ? '主榜'
+                    : entry.rank_position === 'side'
+                        ? '副榜'
+                        : '榜外';
+                return entry.is_new ? `${positionLabel} · NEW` : positionLabel;
+            }
+
+            createRankingCard(entry) {
+                const statusTag = entry.is_examined
+                    ? '<span class="tag tag-examined">已收录</span>'
+                    : '<span class="tag tag-uncheck">未收录</span>';
+
+                return `
+                    <div class="ranking-card">
+                        <div class="ranking-header">
+                            <div class="ranking-rank">${entry.rank_label}</div>
+                            <div class="ranking-score">总分 ${entry.total_score.toFixed(3)}</div>
+                        </div>
+                        <div class="ranking-title">${entry.title}</div>
+                        <div class="ranking-meta">
+                            <div>${entry.uploader || '未知UP'} · ${this.formatPreviewPosition(entry)}</div>
+                            <div>${entry.bvid} · 发布于 ${entry.pubdate || '未知时间'}</div>
+                        </div>
+                        <div class="video-tags" style="margin-top: 0.75rem;">
+                            ${statusTag}
+                            ${entry.is_republish ? '<span class="tag tag-republish">转载</span>' : ''}
+                        </div>
+                        <div class="ranking-stats">
+                            <div>增量: 播放 ${this.formatNumber(entry.view_delta)} / 点赞 ${this.formatNumber(entry.like_delta)} / 硬币 ${this.formatNumber(entry.coin_delta)}</div>
+                            <div>收藏 ${this.formatNumber(entry.favorite_delta)} / 分享 ${this.formatNumber(entry.share_delta)} / 评论 ${this.formatNumber(entry.reply_delta)}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderRankingPreview(result, rank, index) {
+                const preview = document.getElementById('rankingPreview');
+                const entries = Array.isArray(result.data) ? result.data : [];
+                const meta = result.meta || {};
+                const refreshNote = meta.refreshed
+                    ? '已完成刷新并展示最新可用结果。'
+                    : meta.auth_configured
+                        ? '当前展示的是已缓存的预览结果。'
+                        : '服务器未配置 auth_key，当前展示的是已缓存的只读预览结果。';
+
+                if (entries.length === 0) {
+                    preview.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <div>该期暂时没有可展示的校审结果</div>
+                            <div style="margin-top: 0.5rem; color: var(--gray-500); font-size: 0.875rem;">${refreshNote}</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const summaryCard = `
+                    <div class="ranking-card ranking-summary-card">
+                        <div class="ranking-header">
+                            <div class="ranking-rank">${rank.toUpperCase()} 第${index}期</div>
+                            <div class="ranking-score">${refreshNote}</div>
+                        </div>
+                        <div class="ranking-summary-grid">
+                            <div class="ranking-summary-item">
+                                <span class="ranking-summary-item-label">稿件数量</span>
+                                <span class="ranking-summary-item-value">${this.formatNumber(meta.count)}</span>
+                            </div>
+                            <div class="ranking-summary-item">
+                                <span class="ranking-summary-item-label">新增稿件</span>
+                                <span class="ranking-summary-item-value">${this.formatNumber(meta.total_new)}</span>
+                            </div>
+                            <div class="ranking-summary-item">
+                                <span class="ranking-summary-item-label">总播放</span>
+                                <span class="ranking-summary-item-value">${this.formatNumber(meta.total_view)}</span>
+                            </div>
+                            <div class="ranking-summary-item">
+                                <span class="ranking-summary-item-label">总点赞</span>
+                                <span class="ranking-summary-item-value">${this.formatNumber(meta.total_like)}</span>
+                            </div>
+                        </div>
+                        <div class="ranking-note">
+                            统计区间: ${meta.start_time || '未知'} 至 ${meta.end_time || '未知'}，当前预览展示前 ${this.formatNumber(entries.length)} 条。
+                        </div>
+                    </div>
+                `;
+
+                preview.innerHTML = summaryCard + entries.map(entry => this.createRankingCard(entry)).join('');
+            }
+
             openEditPanel(bvid) {
-                const video = this.videos.find(v => v.bvid === bvid);
+                const video = this.allVideos.find(v => v.bvid === bvid);
                 if (!video) return;
 
-                const change = this.changes.get(bvid) || { ...video };
+                const change = this.changes.get(bvid) || this.cloneVideoData(video);
                 
                 const panel = document.createElement('div');
                 panel.className = 'edit-panel open';
@@ -1379,7 +1650,7 @@
 
                 document.body.appendChild(panel);
                 this.currentEditingBvid = bvid;
-                this.currentEditingData = { ...change };
+                this.currentEditingData = this.cloneVideoData(change);
 
                 panel.addEventListener('click', (e) => {
                     if (e.target === panel) this.closeEditPanel();
@@ -1415,21 +1686,20 @@
                 this.currentEditingData.staff_info = staffInfo;
 
                 if (!this.originalVideos.has(bvid)) {
-                    const original = this.videos.find(v => v.bvid === bvid);
+                    const original = this.allVideos.find(v => v.bvid === bvid);
                     if (original) {
-                        this.originalVideos.set(bvid, { ...original });
+                        this.originalVideos.set(bvid, this.cloneVideoData(original));
                     }
                 }
 
-                this.changes.set(bvid, { ...this.currentEditingData });
-                this.closeEditPanel();
-                this.renderVideos();
-                this.updateChangesPanel();
-                
-                this.videos = this.videos.map(v => 
-                    v.bvid === bvid ? { ...v, ...this.currentEditingData } : v
+                const updatedVideo = this.cloneVideoData(this.currentEditingData);
+                this.changes.set(bvid, updatedVideo);
+                this.allVideos = this.allVideos.map(video =>
+                    video.bvid === bvid ? { ...video, ...updatedVideo, ranks: [...updatedVideo.ranks] } : video
                 );
-                this.updateStats();
+                this.closeEditPanel();
+                this.applyFilters();
+                this.updateChangesPanel();
             }
 
             updateChangesPanel() {
@@ -1462,43 +1732,48 @@
                         </div>
                     `;
                 }).join('');
+
+                this.syncChangesPanelOffset();
+            }
+
+            syncChangesPanelOffset() {
+                const panel = document.getElementById('changesPanel');
+                if (!panel || !panel.classList.contains('open')) {
+                    document.documentElement.style.setProperty('--changes-panel-offset', '0px');
+                    return;
+                }
+
+                const panelHeight = Math.min(panel.scrollHeight, window.innerHeight * 0.4);
+                const safeOffset = Math.ceil(panelHeight + 16);
+                document.documentElement.style.setProperty('--changes-panel-offset', `${safeOffset}px`);
             }
 
             removeChange(bvid) {
                 this.changes.delete(bvid);
                 const original = this.originalVideos.get(bvid);
                 if (original) {
-                    this.videos = this.videos.map(v => 
-                        v.bvid === bvid ? { ...original } : v
+                    this.allVideos = this.allVideos.map(v => 
+                        v.bvid === bvid ? this.cloneVideoData(original) : v
                     );
                     this.originalVideos.delete(bvid);
-                } else {
-                    const originalVideo = this.videos.find(v => v.bvid === bvid);
-                    if (originalVideo) {
-                        this.videos = this.videos.map(v => 
-                            v.bvid === bvid ? { ...originalVideo } : v
-                        );
-                    }
                 }
-                this.renderVideos();
+                this.applyFilters();
                 this.updateChangesPanel();
-                this.updateStats();
             }
 
             clearChanges() {
                 if (this.changes.size === 0) return;
                 
                 for (const [bvid, original] of this.originalVideos.entries()) {
-                    this.videos = this.videos.map(v => 
-                        v.bvid === bvid ? { ...original } : v
+                    this.allVideos = this.allVideos.map(v => 
+                        v.bvid === bvid ? this.cloneVideoData(original) : v
                     );
                 }
                 
                 this.changes.clear();
                 this.originalVideos.clear();
-                this.renderVideos();
+                this.applyFilters();
                 this.updateChangesPanel();
-                this.updateStats();
             }
 
             showSubmitModal() {
@@ -1538,6 +1813,7 @@
 
                     alert('提交成功!');
                     this.changes.clear();
+                    this.originalVideos.clear();
                     this.hideModal();
                     this.updateChangesPanel();
                     this.loadVideos();
@@ -1557,7 +1833,7 @@
                     const response = await fetch('/api/calculate-rankings', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ rank, index, contain_unexamined: false, lock: false })
+                        body: JSON.stringify({ rank, index, contain_unexamined: false, lock: false, refresh: true, limit: 30 })
                     });
                     const result = await response.json();
 
@@ -1566,17 +1842,7 @@
                         return;
                     }
 
-                    preview.innerHTML = `
-                        <div class="ranking-card">
-                            <div class="ranking-header">
-                                <div class="ranking-rank">✅</div>
-                            </div>
-                            <div>${rank.toUpperCase()} 第${index}期排行榜已重新计算</div>
-                            <div style="margin-top: 0.5rem; color: var(--gray-500); font-size: 0.875rem;">
-                                包含未收录稿件: 否 | 锁定: 否
-                            </div>
-                        </div>
-                    `;
+                    this.renderRankingPreview(result, rank, index);
                 } catch (error) {
                     preview.innerHTML = `<div class="empty-state">计算失败: ${error.message}</div>`;
                 }
@@ -1608,6 +1874,7 @@
                     }
 
                     videoList.innerHTML = result.data.map((video, index) => this.createVideoCard(video, index)).join('');
+                    this.loadMissingCovers(result.data);
                 } catch (error) {
                     videoList.innerHTML = `<div class="empty-state">搜索失败: ${error.message}</div>`;
                 }

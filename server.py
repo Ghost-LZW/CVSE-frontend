@@ -36,6 +36,7 @@ from api_client import (
 
 CVSE_HOST = "47.104.152.246"
 CVSE_PORT = "8663"
+DEFAULT_PREVIEW_LIMIT = 30
 
 
 def format_video_entry(entry):
@@ -61,6 +62,68 @@ def format_video_entry(entry):
         "is_examined": entry.isExamined,
         "is_republish": entry.isRepublish,
         "staff_info": entry.staffInfo,
+    }
+
+
+def format_rpc_time(rpc_time):
+    """Format RPC time value for frontend display"""
+    return datetime.fromtimestamp(
+        rpc_time.seconds + rpc_time.nanoseconds / 1_000_000_000
+    ).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def normalize_enum_value(value):
+    """Normalize capnp enum values to frontend-friendly strings"""
+    text = str(value)
+    if "." in text:
+        text = text.split(".")[-1]
+    return text
+
+
+def format_ranking_preview_entry(entry, meta_lookup):
+    """Merge ranking info with meta info for preview page"""
+    meta = meta_lookup.get(entry.bvid, {})
+    special_rank = normalize_enum_value(entry.specialRank)
+    rank_position = normalize_enum_value(entry.rankPosition)
+
+    if special_rank == "normal" and entry.rank > 0:
+        rank_label = f"#{entry.rank}"
+    elif special_rank == "sh":
+        rank_label = "SH"
+    elif special_rank == "hot":
+        rank_label = "HOT"
+    else:
+        rank_label = "待定"
+
+    return {
+        "avid": entry.avid,
+        "bvid": entry.bvid,
+        "title": meta.get("title", entry.bvid),
+        "uploader": meta.get("uploader", ""),
+        "cover": meta.get("cover", ""),
+        "pubdate": meta.get("pubdate", ""),
+        "duration": meta.get("duration", 0),
+        "is_examined": meta.get("is_examined", False),
+        "ranks": meta.get("ranks", []),
+        "is_republish": meta.get("is_republish", False),
+        "staff_info": meta.get("staff_info", ""),
+        "rank": entry.rank,
+        "rank_label": rank_label,
+        "special_rank": special_rank,
+        "rank_position": rank_position,
+        "is_new": entry.isNew,
+        "view_delta": entry.view,
+        "like_delta": entry.like,
+        "coin_delta": entry.coin,
+        "favorite_delta": entry.favorite,
+        "share_delta": entry.share,
+        "reply_delta": entry.reply,
+        "danmaku_delta": entry.danmaku,
+        "score_a": round(entry.scoreA, 3),
+        "score_b": round(entry.scoreB, 3),
+        "score_c": round(entry.scoreC, 3),
+        "total_score": round(entry.totalScore, 3),
+        "on_main_count_in_ten_weeks": entry.onMainCountInTenWeeks,
     }
 
 
@@ -200,12 +263,80 @@ async def submit_changes_async(changes):
     return len(changes)
 
 
-async def calculate_rankings_async(rank_name, index, contain_unexamined, lock):
-    """Calculate rankings"""
+async def get_ranking_preview_async(
+    rank_name, index, contain_unexamined, lock=False, refresh=True, limit=DEFAULT_PREVIEW_LIMIT
+):
+    """Fetch ranking preview data and refresh it when auth is available"""
     rank = Rank[rank_name.upper()]
     client = await CVSE_Client.create(CVSE_HOST, CVSE_PORT)
-    await client.reCalculateRankings(rank, index, contain_unexamined, lock)
-    return f"Calculated rankings for {rank_name}"
+
+    refreshed = False
+    if refresh and client.auth_key is not None:
+        await client.reCalculateRankings(rank, index, contain_unexamined, lock)
+        refreshed = True
+
+    stat = await client.lookupRankingMetaInfo(rank, index, contain_unexamined)
+    count = int(getattr(stat, "count", 0) or 0)
+    preview_limit = max(1, min(int(limit or DEFAULT_PREVIEW_LIMIT), DEFAULT_PREVIEW_LIMIT))
+
+    if count == 0:
+        return {
+            "entries": [],
+            "meta": {
+                "count": 0,
+                "total_view": 0,
+                "total_like": 0,
+                "total_coin": 0,
+                "total_favorite": 0,
+                "total_share": 0,
+                "total_reply": 0,
+                "total_danmaku": 0,
+                "total_new": 0,
+                "start_time": None,
+                "end_time": None,
+                "auth_configured": client.auth_key is not None,
+                "refreshed": refreshed,
+                "limit": preview_limit,
+            },
+        }
+
+    indices = list(
+        await client.getAllRankingInfo(
+            rank,
+            index,
+            contain_unexamined,
+            from_rank=1,
+            to_rank=min(count, preview_limit) + 1,
+        )
+    )
+    ranking_entries = list(
+        await client.lookupRankingInfo(rank, index, contain_unexamined, indices)
+    )
+    meta_entries = list(await client.lookupMetaInfo(indices))
+    meta_lookup = {entry.bvid: format_video_entry(entry) for entry in meta_entries}
+
+    return {
+        "entries": [
+            format_ranking_preview_entry(entry, meta_lookup)
+            for entry in ranking_entries
+        ],
+        "meta": {
+            "count": count,
+            "total_view": int(stat.totalView),
+            "total_like": int(stat.totalLike),
+            "total_coin": int(stat.totalCoin),
+            "total_favorite": int(stat.totalFavorite),
+            "total_share": int(stat.totalShare),
+            "total_reply": int(stat.totalReply),
+            "total_danmaku": int(stat.totalDanmaku),
+            "total_new": int(stat.totalNew),
+            "start_time": format_rpc_time(stat.startTime),
+            "end_time": format_rpc_time(stat.endTime),
+            "auth_configured": client.auth_key is not None,
+            "refreshed": refreshed,
+            "limit": preview_limit,
+        },
+    }
 
 
 @app.route("/")
@@ -281,7 +412,7 @@ def get_video(bvid):
 def submit_changes():
     """API: Submit batch changes to CVSE server"""
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
         changes = data.get("changes", [])
 
         if not changes:
@@ -296,21 +427,46 @@ def submit_changes():
 
 @app.route("/api/calculate-rankings", methods=["POST"])
 def calculate_rankings():
-    """API: Calculate rankings for a specific rank"""
+    """API: Refresh rankings when possible and return preview data"""
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
         rank_name = data.get("rank", "domestic")
         index = int(data.get("index", 0))
         contain_unexamined = data.get("contain_unexamined", False)
         lock = data.get("lock", False)
+        refresh = data.get("refresh", True)
+        limit = int(data.get("limit", DEFAULT_PREVIEW_LIMIT))
 
-        message = asyncio.run(
+        preview_data = asyncio.run(
             capnp.run(
-                calculate_rankings_async(rank_name, index, contain_unexamined, lock)
+                get_ranking_preview_async(
+                    rank_name,
+                    index,
+                    contain_unexamined,
+                    lock=lock,
+                    refresh=refresh,
+                    limit=limit,
+                )
             )
         )
 
-        return jsonify({"success": True, "message": message})
+        refreshed = preview_data["meta"]["refreshed"]
+        auth_configured = preview_data["meta"]["auth_configured"]
+        if refreshed:
+            message = f"Rankings refreshed for {rank_name}"
+        elif auth_configured:
+            message = f"Preview loaded for {rank_name}"
+        else:
+            message = f"Preview loaded for {rank_name} (auth_key not configured, using cached rankings)"
+
+        return jsonify(
+            {
+                "success": True,
+                "message": message,
+                "meta": preview_data["meta"],
+                "data": preview_data["entries"],
+            }
+        )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
