@@ -3,8 +3,6 @@
 CVSE Quick Start
 """
 
-import sys
-
 def main():
     print("CVSE Quick Start")
     print("Dependencies: flask flask-cors pycapnp")
