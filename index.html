@@ -1058,7 +1058,7 @@
                             <option value="sv">SV类</option>
                             <option value="utau">UTAU类</option>
                         </select>
-                        <input type="number" class="input" id="previewIndex" placeholder="期数" value="0" style="width: 80px;">
+                        <input type="number" class="input" id="previewIndex" placeholder="期数" value="1" min="1" style="width: 80px;">
                         <button class="btn btn-primary" id="calculateBtn">🧮 计算排行榜</button>
                     </div>
                 </div>
@@ -1256,7 +1256,7 @@
                             params.value = '{\n  "changes": [\n    {\n      "bvid": "BVxxx",\n      "ranks": ["domestic", "sv"],\n      "is_examined": true,\n      "is_republish": false\n    }\n  ]\n}';
                             break;
                         case '/api/calculate-rankings':
-                            params.value = '{\n  "rank": "domestic",\n  "index": 0,\n  "contain_unexamined": false,\n  "lock": false\n}';
+                            params.value = '{\n  "rank": "domestic",\n  "index": 1,\n  "contain_unexamined": false,\n  "lock": false\n}';
                             break;
                     }
                 });
@@ -1364,16 +1364,13 @@
 
             async loadVideos() {
                 const videoList = document.getElementById('videoList');
-                const keyword = document.getElementById('searchKeyword').value;
-                const rank = document.getElementById('rankFilter').value;
-                const examined = document.getElementById('examinedFilter').value;
-                const bvid = document.getElementById('bvidFilter').value;
                 const dateFilter = document.getElementById('dateFilter').value;
                 const pageSize = document.getElementById('pageSizeSelect').value;
-                const pageIndex = document.getElementById('currentPage').value || 1;
+                const pageIndex = Number(document.getElementById('currentPage').value) || 1;
 
                 if (dateFilter !== this.currentDate || pageSize !== this.currentPageSize || pageIndex !== this.currentPageIndex) {
                     videoList.innerHTML = '<div class="loading">正在向服务器请求数据...</div>';
+                    this.currentPageIndex = pageIndex;
                     if (dateFilter !== this.currentDate || pageSize !== this.currentPageSize) {
                         this.currentPageIndex = 1;
                     }
@@ -1409,7 +1406,20 @@
                     }
                 }
 
-                let videoData = this.filterVideos(this.videos, { keyword, rank, examined, bvid });
+                this.applyRecordingFilters();
+            }
+
+            getRecordingFilters() {
+                return {
+                    keyword: document.getElementById('searchKeyword').value,
+                    rank: document.getElementById('rankFilter').value,
+                    examined: document.getElementById('examinedFilter').value,
+                    bvid: document.getElementById('bvidFilter').value,
+                };
+            }
+
+            applyRecordingFilters() {
+                const videoData = this.filterVideos(this.videos, this.getRecordingFilters());
                 this.updateStats(videoData);
                 this.renderVideos(videoData);
                 this.pageButtons();
@@ -1680,13 +1690,12 @@
 
                 this.changes.set(bvid, { ...this.currentEditingData });
                 this.closeEditPanel();
-                this.renderVideos();
-                this.updateChangesPanel();
                 
                 this.videos = this.videos.map(v => 
                     v.bvid === bvid ? { ...v, ...this.currentEditingData } : v
                 );
-                this.updateStats();
+                this.applyRecordingFilters();
+                this.updateChangesPanel();
             }
 
             updateChangesPanel() {
@@ -1809,7 +1818,9 @@
 
             async calculateRankings() {
                 const rank = document.getElementById('previewRank').value;
-                const index = parseInt(document.getElementById('previewIndex').value) || 0;
+                const indexInput = Number.parseInt(document.getElementById('previewIndex').value, 10);
+                const index = Number.isNaN(indexInput) ? 1 : Math.max(1, indexInput);
+                document.getElementById('previewIndex').value = index;
                 const preview = document.getElementById('rankingPreview');
                 const authHeaders = this.getAuthHeaders();
                 

@@ -7,15 +7,24 @@ Copyright (c) 2026 milkboy, yhtq
 """
 
 import asyncio
-import json
 import os
-import sys
 from datetime import datetime, timedelta
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from waitress import serve
+import capnp
+from rpc_tools.api_client import (
+    CVSE_Client,
+    ModifyEntry,
+    RPCTime,
+    Rank,
+    capnp_to_Rank,
+    ModifyEntry_to_capnp,
+    Index_to_capnp,
+    bv_to_index,
+)
 
 app = Flask(__name__)
 CORS(app)
@@ -24,23 +33,6 @@ limiter = Limiter(
     key_func=get_remote_address,
     app=app,
     default_limits=["100 per minute"],
-)
-
-current_script_path = os.path.abspath(__file__)
-
-import capnp
-from rpc_tools.api_client import (
-    CVSE_Client,
-    ModifyEntry,
-    RPCTime,
-    Rank,
-    RankProtocol,
-    capnp_to_Rank,
-    Rank_to_capnp,
-    ModifyEntry_to_capnp,
-    Index_to_capnp,
-    av_to_index,
-    bv_to_index
 )
 
 CVSE_HOST = "47.104.152.246"
