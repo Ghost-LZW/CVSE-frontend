@@ -5,16 +5,16 @@ Simplified CVSE video data display system that fetches real server data.
 ## Quick Start
 
 ### 1. Install Dependencies
-Install pdm: https://pdm-project.org/en/latest/
+Install uv: https://docs.uv.dev/ (or `nix develop` for Nix users)
 ```bash
 git submodule update --init --recursive
-pdm install 
+uv sync 
 ```
 
 ### 2. Start Server
 Use `CVSE_SERVER_HOST`(default: "0.0.0.0") and `CVSE_SERVER_PORT`(default: "25123") to specify server configuration.
 ```bash
-pdm run server
+uv run server.py
 ```
 
 ### 3. Access
