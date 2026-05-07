@@ -610,9 +610,8 @@
             }
 
             changePage(delta) {
-                this.currentPageIndex += delta;
-                if (this.currentPageIndex < 1) this.currentPageIndex = 1;
-                document.getElementById('currentPage').value = this.currentPageIndex;
+                const newIndex = this.currentPageIndex + delta;
+                document.getElementById('currentPage').value = newIndex < 1 ? 1 : newIndex;
                 this.loadVideos();
             }
 
