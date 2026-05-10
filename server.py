@@ -123,6 +123,15 @@ async def get_videos_async(
         return {
             "data": [],
             "total": 0,
+            "stats": {
+                "total": 0,
+                "domestic": 0,
+                "sv": 0,
+                "utau": 0,
+                "republish": 0,
+                "uncheck": 0,
+                "exclusion": 0,
+            },
             "date_range": {
                 "date": start_week.strftime("%Y年%m月%d日"),
             },
@@ -169,11 +178,13 @@ async def get_videos_async(
     paginated = filtered[start:end]
 
     stats = {
-        "total": len(formatted_videos),
-        "domestic": len([v for v in formatted_videos if "domestic" in v["ranks"]]),
-        "sv": len([v for v in formatted_videos if "sv" in v["ranks"]]),
-        "utau": len([v for v in formatted_videos if "utau" in v["ranks"]]),
-        "uncheck": len([v for v in formatted_videos if not v["is_examined"]]),
+        "total": len(filtered),
+        "domestic": len([v for v in filtered if "domestic" in v["ranks"]]),
+        "sv": len([v for v in filtered if "sv" in v["ranks"]]),
+        "utau": len([v for v in filtered if "utau" in v["ranks"]]),
+        "republish": len([v for v in filtered if v["is_republish"]]),
+        "uncheck": len([v for v in filtered if not v["is_examined"]]),
+        "exclusion": len([v for v in filtered if v["is_examined"] and len(v["ranks"]) == 0]),
     }
 
     return {

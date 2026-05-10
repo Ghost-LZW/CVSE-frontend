@@ -182,6 +182,14 @@ body {
     margin: 0 0.5rem;
 }
 
+.pagination-bottom {
+    border-top: 1px solid var(--gray-200);
+    border-bottom: none;
+    margin-top: 1rem;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
 .card-title {
     font-size: 1.125rem;
     font-weight: 600;

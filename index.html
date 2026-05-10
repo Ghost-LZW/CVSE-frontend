@@ -140,6 +140,13 @@
                 <div class="video-list layout-double" id="videoList">
                     <div class="loading">正在向服务器请求数据...</div>
                 </div>
+                <div class="card-page pagination-bottom" id="paginationBottom" style="justify-content: center; padding: 1rem;">
+                    <button class="btn btn-secondary" id="prevPageBtnBottom">上一页</button>
+                    <span class="page-status" id="pageStatusBottom">第0页 / 共0页</span>
+                    <input class="input" type="number" min="1" id="currentPageBottom" style="width: 72px; text-align: center;">
+                    <button class="btn btn-secondary" id="goPageBtnBottom">跳转</button>
+                    <button class="btn btn-secondary" id="nextPageBtnBottom">下一页</button>
+                </div>
             </div>
         </div>
 
@@ -299,6 +306,7 @@
                 this.previewIndex = 1;
                 this.totalItems = 0;
                 this.totalPages = 0;
+                this.stats = this.getEmptyStats();
                 this.layoutMode = localStorage.getItem('cvse_layout_mode') || 'double';
                 this.lastRequestSignature = '';
                 this.changesPanelOffset = 0;
@@ -316,6 +324,7 @@
                 this.loadApiKey();
                 document.getElementById('dateFilter').value = this.currentDate;
                 document.getElementById('currentPage').value = this.currentPageIndex;
+                document.getElementById('currentPageBottom').value = this.currentPageIndex;
                 document.getElementById('layoutModeSelect').value = this.layoutMode;
                 this.applyLayoutMode();
                 this.updateSelectionBar([]);
@@ -381,12 +390,8 @@
                 document.getElementById('modalCancel').addEventListener('click', () => this.hideModal());
                 document.getElementById('modalOverlay').addEventListener('click', () => this.hideModal());
                 document.getElementById('modalConfirm').addEventListener('click', () => this.submitChanges());
-                document.getElementById('currentPage').addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') this.changePage(document.getElementById('currentPage').value - this.currentPageIndex);
-                });
-                document.getElementById('prevPageBtn').addEventListener('click', () => this.changePage(-1));
-                document.getElementById('nextPageBtn').addEventListener('click', () => this.changePage(1));
-                document.getElementById('goPageBtn').addEventListener('click', () => this.changePage(document.getElementById('currentPage').value - this.currentPageIndex));
+                this.bindPaginationControls('');
+                this.bindPaginationControls('Bottom');
 
                 const panel = document.getElementById('changesPanel');
                 if ('ResizeObserver' in window) {
@@ -548,6 +553,7 @@
 
             searchVideos() {
                 document.getElementById('currentPage').value = 1;
+                document.getElementById('currentPageBottom').value = 1;
                 this.loadVideos({ force: true, resetPage: true });
             }
 
@@ -601,18 +607,20 @@
                         this.videos = result.data;
                         this.totalItems = result.total || 0;
                         this.totalPages = this.totalItems > 0 ? Math.ceil(this.totalItems / pageSize) : 0;
+                        this.stats = { ...this.getEmptyStats(), ...(result.stats || {}) };
                         this.lastRequestSignature = requestSignature;
                         this.selectedVideos.clear();
 
                         if (this.totalPages > 0 && this.currentPageIndex > this.totalPages) {
                             this.currentPageIndex = this.totalPages;
-                            document.getElementById('currentPage').value = this.currentPageIndex;
+                            this.setPaginationInputs(this.currentPageIndex);
                             await this.loadVideos({ force: true });
                             return;
                         }
                     } catch (error) {
                         this.totalItems = 0;
                         this.totalPages = 0;
+                        this.stats = this.getEmptyStats();
                         this.updatePagination();
                         videoList.innerHTML = `<div class="empty-state">
                             <div class="empty-state-icon">❌</div>
@@ -637,7 +645,7 @@
 
             applyRecordingFilters() {
                 const videoData = this.getVisibleVideos();
-                this.updateStats(videoData);
+                this.updateStats();
                 this.renderVideos(videoData);
                 this.updatePagination();
             }
@@ -688,8 +696,8 @@
             }
 
             resetStats() {
-                document.getElementById('currentPage').value = this.currentPageIndex;
-                document.getElementById('pageStatus').textContent = '第0页 / 共0页';
+                this.setPaginationInputs(this.currentPageIndex);
+                this.setPaginationStatuses('第0页 / 共0页');
                 document.getElementById('totalCount').textContent = '-';
                 document.getElementById('domesticCount').textContent = '-';
                 document.getElementById('svCount').textContent = '-';
@@ -699,23 +707,29 @@
                 document.getElementById('exclusionCount').textContent = '-';
             }
 
-            updateStats(videos = this.videos) {
-                const total = videos.length;
-                const domestic = videos.filter(v => v.ranks.includes('domestic')).length;
-                const sv = videos.filter(v => v.ranks.includes('sv')).length;
-                const utau = videos.filter(v => v.ranks.includes('utau')).length;
-                const republish = videos.filter(v => v.is_republish).length;
-                const uncheck = videos.filter(v => !v.is_examined).length;
-                const exclusion = videos.filter(v => v.is_examined && v.ranks.length === 0).length;
+            getEmptyStats() {
+                return {
+                    total: 0,
+                    domestic: 0,
+                    sv: 0,
+                    utau: 0,
+                    republish: 0,
+                    uncheck: 0,
+                    exclusion: 0,
+                };
+            }
 
-                document.getElementById('currentPage').value = this.currentPageIndex;
-                document.getElementById('totalCount').textContent = total || 0;
-                document.getElementById('domesticCount').textContent = domestic || 0;
-                document.getElementById('svCount').textContent = sv || 0;
-                document.getElementById('utauCount').textContent = utau || 0;
-                document.getElementById('republishCount').textContent = republish || 0;
-                document.getElementById('uncheckCount').textContent = uncheck || 0;
-                document.getElementById('exclusionCount').textContent = exclusion || 0;
+            updateStats() {
+                const stats = { ...this.getEmptyStats(), ...(this.stats || {}) };
+
+                this.setPaginationInputs(this.currentPageIndex);
+                document.getElementById('totalCount').textContent = stats.total || 0;
+                document.getElementById('domesticCount').textContent = stats.domestic || 0;
+                document.getElementById('svCount').textContent = stats.sv || 0;
+                document.getElementById('utauCount').textContent = stats.utau || 0;
+                document.getElementById('republishCount').textContent = stats.republish || 0;
+                document.getElementById('uncheckCount').textContent = stats.uncheck || 0;
+                document.getElementById('exclusionCount').textContent = stats.exclusion || 0;
             }
 
             renderVideos(videos = this.videos) {
@@ -750,12 +764,39 @@
             }
 
             updatePagination() {
-                document.getElementById('prevPageBtn').disabled = this.currentPageIndex <= 1 || this.totalPages === 0;
-                document.getElementById('nextPageBtn').disabled = this.totalPages === 0 || this.currentPageIndex >= this.totalPages;
-                document.getElementById('currentPage').value = this.currentPageIndex;
-                document.getElementById('pageStatus').textContent = this.totalPages === 0
+                const prevDisabled = this.currentPageIndex <= 1 || this.totalPages === 0;
+                const nextDisabled = this.totalPages === 0 || this.currentPageIndex >= this.totalPages;
+
+                ['prevPageBtn', 'prevPageBtnBottom'].forEach(id => document.getElementById(id).disabled = prevDisabled);
+                ['nextPageBtn', 'nextPageBtnBottom'].forEach(id => document.getElementById(id).disabled = nextDisabled);
+                this.setPaginationInputs(this.currentPageIndex);
+                this.setPaginationStatuses(this.totalPages === 0
                     ? '第0页 / 共0页'
-                    : `第${this.currentPageIndex}页 / 共${this.totalPages}页`;
+                    : `第${this.currentPageIndex}页 / 共${this.totalPages}页`);
+            }
+
+            bindPaginationControls(suffix) {
+                const input = document.getElementById(`currentPage${suffix}`);
+                document.getElementById(`prevPageBtn${suffix}`).addEventListener('click', () => this.changePage(-1));
+                document.getElementById(`nextPageBtn${suffix}`).addEventListener('click', () => this.changePage(1));
+                document.getElementById(`goPageBtn${suffix}`).addEventListener('click', () => this.goToPage(input.value));
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.goToPage(input.value);
+                });
+                input.addEventListener('input', () => {
+                    const otherInput = document.getElementById(suffix ? 'currentPage' : 'currentPageBottom');
+                    otherInput.value = input.value;
+                });
+            }
+
+            setPaginationInputs(page) {
+                document.getElementById('currentPage').value = page;
+                document.getElementById('currentPageBottom').value = page;
+            }
+
+            setPaginationStatuses(text) {
+                document.getElementById('pageStatus').textContent = text;
+                document.getElementById('pageStatusBottom').textContent = text;
             }
 
             changePage(delta) {
@@ -764,7 +805,13 @@
                     1,
                     Number.isFinite(deltaValue) ? this.currentPageIndex + deltaValue : this.currentPageIndex
                 );
-                document.getElementById('currentPage').value = targetPage;
+                this.setPaginationInputs(targetPage);
+                this.loadVideos({ force: true });
+            }
+
+            goToPage(page) {
+                const targetPage = Math.max(1, Number(page) || 1);
+                this.setPaginationInputs(targetPage);
                 this.loadVideos({ force: true });
             }
 
