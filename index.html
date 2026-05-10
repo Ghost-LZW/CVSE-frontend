@@ -145,6 +145,20 @@
             align-items: center;
         }
 
+        .recording-card-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 1rem;
+        }
+
+        .recording-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
         .card-page {
             display: flex;
             justify-content: flex-end;
@@ -332,6 +346,12 @@
             gap: 0.75rem;
         }
 
+        .video-list.layout-double {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+        }
+
         .video-item {
             background: white;
             border: 1px solid var(--gray-200);
@@ -359,6 +379,21 @@
         .video-content {
             display: flex;
             gap: 1rem;
+        }
+
+        .video-select {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            width: 100%;
+        }
+
+        .video-checkbox {
+            width: 1rem;
+            height: 1rem;
+            margin-top: 0.25rem;
+            accent-color: var(--primary);
+            flex-shrink: 0;
         }
 
         .video-cover {
@@ -909,6 +944,35 @@
             color: var(--gray-500);
         }
 
+        .selection-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .selection-summary {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+        }
+
+        .selection-actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .page-status {
+            font-size: 0.875rem;
+            color: var(--gray-500);
+            min-width: 140px;
+            text-align: center;
+        }
+
         @media (max-width: 768px) {
             .header-content {
                 flex-direction: column;
@@ -927,6 +991,10 @@
             .video-cover {
                 width: 100%;
                 height: 180px;
+            }
+
+            .video-list.layout-double {
+                grid-template-columns: 1fr;
             }
 
             .edit-panel {
@@ -986,19 +1054,21 @@
             </div>
 
             <div class="card">
-                <div class="card-header">
-                    <div class="card-title">
-                        📺 视频列表
-                        <a href="https://cvse.pingcode.com/wiki/spaces/Z/pages/QigBLflM" target="_blank" class="manual-link">📖 收录手册</a>
+                <div class="card-header recording-card-header">
+                    <div class="recording-header-row">
+                        <div class="card-title">
+                            📺 视频列表
+                            <a href="https://cvse.pingcode.com/wiki/spaces/Z/pages/QigBLflM" target="_blank" class="manual-link">📖 收录手册</a>
+                        </div>
                     </div>
                     <div class="filter-bar" style="margin-bottom: 0; padding: 0; background: none;">
                         <div class="filter-group">
                             <span class="filter-label">日期:</span>
-                            <input type="date" class="input" id="dateFilter" style="width: 150px;">
+                            <input type="date" class="input" id="dateFilter" min="0001-01-01" max="9999-12-31" style="width: 160px;">
                         </div>
                         <div class="filter-group">
                             <span class="filter-label">关键字:</span>
-                            <input type="text" class="input" id="searchKeyword" placeholder="标题/UP主" style="width: 150px;">
+                            <input type="text" class="input" id="searchKeyword" placeholder="标题/UP主/Tag/简介" style="width: 200px;">
                         </div>
                         <div class="filter-group">
                             <span class="filter-label">期刊:</span>
@@ -1020,7 +1090,11 @@
                         </div>
                         <div class="filter-group">
                             <span class="filter-label">BV号:</span>
-                            <input type="text" class="input" id="bvidFilter" placeholder="BV..." style="width: 120px;">
+                            <input type="text" class="input" id="bvidFilter" placeholder="BV..." style="width: 130px;">
+                        </div>
+                        <div class="filter-group">
+                            <span class="filter-label">AV号:</span>
+                            <input type="text" class="input" id="avidFilter" placeholder="av..." style="width: 130px;">
                         </div>
                         <div class="filter-group">
                             <span class="filter-label">每页数量</span>
@@ -1033,17 +1107,33 @@
                                 <option value="500">500</option>
                             </select>
                         </div>
+                        <div class="filter-group">
+                            <span class="filter-label">布局:</span>
+                            <select class="select" id="layoutModeSelect">
+                                <option value="double">双列</option>
+                                <option value="single">单列</option>
+                            </select>
+                        </div>
                         <button class="btn btn-primary" id="searchBtn">🔍 搜索</button>
                         <button class="btn btn-secondary" id="refreshBtn">🔄 刷新</button>
                     </div>
                 </div>
                 <div class="card-page" id="pagination" style="justify-content: center; padding: 1rem;">
                     <button class="btn btn-secondary" id="prevPageBtn">上一页</button>
-                    <input class="input" type="text" id="currentPage" style="width: 60px; text-align: center;">
+                    <span class="page-status" id="pageStatus">第0页 / 共0页</span>
+                    <input class="input" type="number" min="1" id="currentPage" style="width: 72px; text-align: center;">
                     <button class="btn btn-secondary" id="goPageBtn">跳转</button>
                     <button class="btn btn-secondary" id="nextPageBtn">下一页</button>
                 </div>
-                <div class="video-list" id="videoList">
+                <div class="selection-bar" id="selectionBar">
+                    <div class="selection-summary" id="selectionSummary">已选择 0 项</div>
+                    <div class="selection-actions">
+                        <button class="btn btn-secondary btn-sm" id="selectVisibleBtn">全选本页</button>
+                        <button class="btn btn-secondary btn-sm" id="clearSelectionBtn">清空选择</button>
+                        <button class="btn btn-success btn-sm" id="batchMarkExaminedBtn">批量标记为已收录</button>
+                    </div>
+                </div>
+                <div class="video-list layout-double" id="videoList">
                     <div class="loading">正在向服务器请求数据...</div>
                 </div>
             </div>
@@ -1180,10 +1270,15 @@
                 this.videos = [];
                 this.originalVideos = new Map();
                 this.changes = new Map();
+                this.selectedVideos = new Set();
                 this.currentPage = 'recording';
                 this.currentDate = new Date().toISOString().slice(0, 10);
                 this.currentPageSize = 50;
                 this.currentPageIndex = 1;
+                this.totalItems = 0;
+                this.totalPages = 0;
+                this.layoutMode = localStorage.getItem('cvse_layout_mode') || 'double';
+                this.lastRequestSignature = '';
                 this.changesPanelOffset = 0;
                 this.changesPanelObserver = null;
                 this.changesPanelScrollTimer = null;
@@ -1197,7 +1292,12 @@
                 this.setupDebugPanel();
                 this.setupSettingsModal();
                 this.loadApiKey();
-                this.loadVideos();
+                document.getElementById('dateFilter').value = this.currentDate;
+                document.getElementById('currentPage').value = this.currentPageIndex;
+                document.getElementById('layoutModeSelect').value = this.layoutMode;
+                this.applyLayoutMode();
+                this.updateSelectionBar([]);
+                this.loadVideos({ force: true });
             }
 
             setupNavigation() {
@@ -1213,14 +1313,19 @@
             }
 
             setupFilters() {
-                document.getElementById('searchBtn').addEventListener('click', () => this.loadVideos());
+                document.getElementById('searchBtn').addEventListener('click', () => this.searchVideos());
                 document.getElementById('refreshBtn').addEventListener('click', () => this.refreshVideos());
-                document.getElementById('bvidFilter').addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') this.loadVideos();
+
+                ['bvidFilter', 'avidFilter', 'searchKeyword'].forEach(id => {
+                    document.getElementById(id).addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') this.searchVideos();
+                    });
                 });
-                document.getElementById('searchKeyword').addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') this.loadVideos();
-                });
+
+                document.getElementById('layoutModeSelect').addEventListener('change', (e) => this.setLayoutMode(e.target.value));
+                document.getElementById('pageSizeSelect').addEventListener('change', () => this.searchVideos());
+                document.getElementById('dateFilter').addEventListener('input', (e) => this.limitDateYear(e.target));
+                document.getElementById('dateFilter').addEventListener('change', (e) => this.limitDateYear(e.target));
 
                 document.getElementById('calculateBtn').addEventListener('click', () => this.calculateRankings());
                 
@@ -1228,6 +1333,10 @@
                 document.getElementById('pikaKeyword').addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') this.pikaSearch();
                 });
+
+                document.getElementById('selectVisibleBtn').addEventListener('click', () => this.selectVisibleVideos());
+                document.getElementById('clearSelectionBtn').addEventListener('click', () => this.clearSelection());
+                document.getElementById('batchMarkExaminedBtn').addEventListener('click', () => this.batchMarkExamined());
             }
 
             setupChangesPanel() {
@@ -1380,28 +1489,63 @@
                 return "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 160 90%22><rect fill=%22%23e2e8f0%22 width=%22160%22 height=%2290%22/><text fill=%22%2394a3b8%22 x=%2280%22 y=%2245%22 text-anchor=%22middle%22>无封面</text></svg>";
             }
 
-            async refreshVideos() {
-                this.currentDate = '';
-                await this.loadVideos();
+            limitDateYear(input) {
+                if (!input.value) return;
+                const match = input.value.match(/^(\d+)(-\d{2}-\d{2})$/);
+                if (!match) return;
+                const [, year, suffix] = match;
+                if (year.length > 4) {
+                    input.value = `${year.slice(0, 4)}${suffix}`;
+                }
             }
 
-            async loadVideos() {
+            setLayoutMode(mode) {
+                this.layoutMode = mode === 'single' ? 'single' : 'double';
+                localStorage.setItem('cvse_layout_mode', this.layoutMode);
+                this.applyLayoutMode();
+            }
+
+            applyLayoutMode() {
+                const videoList = document.getElementById('videoList');
+                videoList.classList.toggle('layout-double', this.layoutMode === 'double');
+                videoList.classList.toggle('layout-single', this.layoutMode === 'single');
+            }
+
+            searchVideos() {
+                document.getElementById('currentPage').value = 1;
+                this.loadVideos({ force: true, resetPage: true });
+            }
+
+            async refreshVideos() {
+                await this.loadVideos({ force: true });
+            }
+
+            async loadVideos({ force = false, resetPage = false } = {}) {
                 const videoList = document.getElementById('videoList');
                 const dateFilter = document.getElementById('dateFilter').value;
-                const pageSize = document.getElementById('pageSizeSelect').value;
-                const pageIndex = Number(document.getElementById('currentPage').value) || 1;
+                const pageSize = Number(document.getElementById('pageSizeSelect').value);
+                const filters = this.getRecordingFilters();
+                const pageIndex = resetPage ? 1 : Math.max(1, Number(document.getElementById('currentPage').value) || 1);
+                const requestSignature = JSON.stringify({ dateFilter, pageSize, pageIndex, filters });
 
-                if (dateFilter !== this.currentDate || pageSize !== this.currentPageSize || pageIndex !== this.currentPageIndex) {
+                if (force || requestSignature !== this.lastRequestSignature) {
                     videoList.innerHTML = '<div class="loading">正在向服务器请求数据...</div>';
                     this.currentPageIndex = pageIndex;
-                    if (dateFilter !== this.currentDate || pageSize !== this.currentPageSize) {
-                        this.currentPageIndex = 1;
-                    }
                     this.resetStats();
                     this.currentDate = dateFilter;
                     this.currentPageSize = pageSize;
                     try {
-                        let url = `/api/videos?page_size=${pageSize}&page=${this.currentPageIndex}&date=${dateFilter}`;
+                        const params = new URLSearchParams({
+                            page_size: String(pageSize),
+                            page: String(this.currentPageIndex),
+                            date: dateFilter,
+                            keyword: filters.keyword,
+                            rank: filters.rank,
+                            examined: filters.examined,
+                            bvid: filters.bvid,
+                            avid: filters.avid,
+                        });
+                        let url = `/api/videos?${params.toString()}`;
                         const authKey = localStorage.getItem('cvse_api_key');
                         if (authKey) {
                             url += `&auth_key=${encodeURIComponent(authKey)}`;
@@ -1420,7 +1564,21 @@
                         }
 
                         this.videos = result.data;
+                        this.totalItems = result.total || 0;
+                        this.totalPages = this.totalItems > 0 ? Math.ceil(this.totalItems / pageSize) : 0;
+                        this.lastRequestSignature = requestSignature;
+                        this.selectedVideos.clear();
+
+                        if (this.totalPages > 0 && this.currentPageIndex > this.totalPages) {
+                            this.currentPageIndex = this.totalPages;
+                            document.getElementById('currentPage').value = this.currentPageIndex;
+                            await this.loadVideos({ force: true });
+                            return;
+                        }
                     } catch (error) {
+                        this.totalItems = 0;
+                        this.totalPages = 0;
+                        this.updatePagination();
                         videoList.innerHTML = `<div class="empty-state">
                             <div class="empty-state-icon">❌</div>
                             <div>加载失败: ${error.message}</div>
@@ -1434,27 +1592,38 @@
 
             getRecordingFilters() {
                 return {
-                    keyword: document.getElementById('searchKeyword').value,
+                    keyword: document.getElementById('searchKeyword').value.trim(),
                     rank: document.getElementById('rankFilter').value,
                     examined: document.getElementById('examinedFilter').value,
-                    bvid: document.getElementById('bvidFilter').value,
+                    bvid: document.getElementById('bvidFilter').value.trim(),
+                    avid: document.getElementById('avidFilter').value.trim(),
                 };
             }
 
             applyRecordingFilters() {
-                const videoData = this.filterVideos(this.videos, this.getRecordingFilters());
+                const videoData = this.getVisibleVideos();
                 this.updateStats(videoData);
                 this.renderVideos(videoData);
-                this.pageButtons();
+                this.updatePagination();
+            }
+
+            getVisibleVideos() {
+                return this.filterVideos(this.videos, this.getRecordingFilters());
             }
 
             filterVideos(videos = this.videos, filters) {
-                const { keyword, rank, examined, bvid } = filters;
+                const { keyword, rank, examined, bvid, avid } = filters;
 
                 let videoData = videos;
+                const normalizedKeyword = keyword.toLowerCase();
 
                 if (keyword) {
-                    videoData = videoData.filter(v => v.title.toLowerCase().includes(keyword) || v.desc.toLowerCase().includes(keyword) || v.uploader.toLowerCase().includes(keyword));
+                    videoData = videoData.filter(v =>
+                        v.title.toLowerCase().includes(normalizedKeyword)
+                        || v.desc.toLowerCase().includes(normalizedKeyword)
+                        || v.uploader.toLowerCase().includes(normalizedKeyword)
+                        || (v.tags || []).some(tag => tag.toLowerCase().includes(normalizedKeyword))
+                    );
                 }
 
                 if (rank !== 'all') {
@@ -1474,13 +1643,18 @@
                 }
 
                 if (bvid) {
-                    videoData = videoData.filter(v => v.bvid === bvid);
+                    videoData = videoData.filter(v => v.bvid.toLowerCase().includes(bvid.toLowerCase()));
+                }
+
+                if (avid) {
+                    videoData = videoData.filter(v => v.avid.toLowerCase().includes(avid.toLowerCase()));
                 }
                 return videoData;
             }
 
             resetStats() {
                 document.getElementById('currentPage').value = this.currentPageIndex;
+                document.getElementById('pageStatus').textContent = '第0页 / 共0页';
                 document.getElementById('totalCount').textContent = '-';
                 document.getElementById('domesticCount').textContent = '-';
                 document.getElementById('svCount').textContent = '-';
@@ -1511,32 +1685,58 @@
 
             renderVideos(videos = this.videos) {
                 const videoList = document.getElementById('videoList');
+                this.reconcileSelection(videos);
                 
                 if (videos.length === 0) {
                     videoList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div>暂无数据</div></div>';
+                    this.updateSelectionBar(videos);
+                    this.applyLayoutMode();
                     return;
                 }
 
                 videoList.innerHTML = videos.map((video, index) => this.createVideoCard(video, index)).join('');
+                this.updateSelectionBar(videos);
+                this.applyLayoutMode();
             }
 
-            pageButtons() {
-                if (this.currentPageIndex <= 1) {
-                    document.getElementById('prevPageBtn').disabled = true;
-                } else {
-                    document.getElementById('prevPageBtn').disabled = false;
-                }
+            reconcileSelection(videos = this.videos) {
+                const visibleBvids = new Set(videos.map(video => video.bvid));
+                this.selectedVideos = new Set(
+                    Array.from(this.selectedVideos).filter(bvid => visibleBvids.has(bvid))
+                );
+            }
+
+            updateSelectionBar(videos = this.videos) {
+                const selectionCount = this.selectedVideos.size;
+                document.getElementById('selectionSummary').textContent = `已选择 ${selectionCount} 项`;
+                document.getElementById('selectVisibleBtn').disabled = videos.length === 0;
+                document.getElementById('clearSelectionBtn').disabled = selectionCount === 0;
+                document.getElementById('batchMarkExaminedBtn').disabled = selectionCount === 0;
+            }
+
+            updatePagination() {
+                document.getElementById('prevPageBtn').disabled = this.currentPageIndex <= 1 || this.totalPages === 0;
+                document.getElementById('nextPageBtn').disabled = this.totalPages === 0 || this.currentPageIndex >= this.totalPages;
+                document.getElementById('currentPage').value = this.currentPageIndex;
+                document.getElementById('pageStatus').textContent = this.totalPages === 0
+                    ? '第0页 / 共0页'
+                    : `第${this.currentPageIndex}页 / 共${this.totalPages}页`;
             }
 
             changePage(delta) {
-                const targetPage = Math.max(1, this.currentPageIndex + Number(delta || 0));
+                const deltaValue = Number(delta || 0);
+                const targetPage = Math.max(
+                    1,
+                    Number.isFinite(deltaValue) ? this.currentPageIndex + deltaValue : this.currentPageIndex
+                );
                 document.getElementById('currentPage').value = targetPage;
-                this.loadVideos();
+                this.loadVideos({ force: true });
             }
 
             createVideoCard(video, index) {
                 const hasChange = this.changes.has(video.bvid);
-                const changeClass = hasChange ? 'edited' : '';
+                const isSelected = this.selectedVideos.has(video.bvid);
+                const changeClass = `${hasChange ? 'edited' : ''} ${isSelected ? 'selected' : ''}`.trim();
                 const coverUrl = this.normalizeCoverUrl(video.cover);
                 const fallbackCover = this.getCoverFallbackDataUrl();
 
@@ -1559,28 +1759,32 @@
 
                 return `
                     <div class="video-item ${changeClass}" data-bvid="${video.bvid}">
-                        <div class="video-content">
-                            <img class="video-cover" src="${coverUrl || fallbackCover}" alt="封面" crossorigin="anonymous" referrerpolicy="no-referrer" loading="lazy" decoding="async"
-                                onerror="this.onerror=null;this.src='${fallbackCover}'"
-                                onclick="window.open('https://www.bilibili.com/video/${video.bvid}', '_blank')">
-                            <div class="video-info">
-                                <div class="video-title">${video.title}</div>
-                                <div class="video-meta">
-                                    <span class="video-meta-item">
-                                        <span class="video-uploader">${video.uploader}</span>
-                                    </span>
-                                    <span class="video-meta-item">⏱ ${this.formatDuration(video.duration)}</span>
-                                    <span class="video-meta-item">📅 ${video.pubdate}</span>
-                                </div>
-                                <div class="video-tags">
-                                    ${rankTags}
-                                    ${statusTag}
-                                    ${republishTag}
-                                    ${exclusionTag}
-                                </div>
-                                <div class="video-actions">
-                                    <button class="btn btn-primary btn-sm" onclick="app.openEditPanel('${video.bvid}')">✏️ 编辑</button>
-                                    <button class="btn btn-secondary btn-sm" onclick="window.open('https://www.bilibili.com/video/${video.bvid}', '_blank')">🔗 跳转</button>
+                        <div class="video-select">
+                            <input class="video-checkbox" type="checkbox" ${isSelected ? 'checked' : ''} onchange="app.toggleVideoSelection('${video.bvid}', this.checked)">
+                            <div class="video-content">
+                                <img class="video-cover" src="${coverUrl || fallbackCover}" alt="封面" crossorigin="anonymous" referrerpolicy="no-referrer" loading="lazy" decoding="async"
+                                    onerror="this.onerror=null;this.src='${fallbackCover}'"
+                                    onclick="window.open('https://www.bilibili.com/video/${video.bvid}', '_blank')">
+                                <div class="video-info">
+                                    <div class="video-title">${video.title}</div>
+                                    <div class="video-meta">
+                                        <span class="video-meta-item">
+                                            <span class="video-uploader">${video.uploader}</span>
+                                        </span>
+                                        <span class="video-meta-item">⏱ ${this.formatDuration(video.duration)}</span>
+                                        <span class="video-meta-item">📅 ${video.pubdate}</span>
+                                        <span class="video-meta-item">${video.avid}</span>
+                                    </div>
+                                    <div class="video-tags">
+                                        ${rankTags}
+                                        ${statusTag}
+                                        ${republishTag}
+                                        ${exclusionTag}
+                                    </div>
+                                    <div class="video-actions">
+                                        <button class="btn btn-primary btn-sm" onclick="app.openEditPanel('${video.bvid}')">✏️ 编辑</button>
+                                        <button class="btn btn-secondary btn-sm" onclick="window.open('https://www.bilibili.com/video/${video.bvid}', '_blank')">🔗 跳转</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1700,23 +1904,56 @@
                 this.currentEditingData.is_examined = document.getElementById('isExamined').checked;
             }
 
+            applyLocalChange(bvid, patch) {
+                const currentVideo = this.videos.find(v => v.bvid === bvid);
+                if (!currentVideo) return;
+
+                if (!this.originalVideos.has(bvid)) {
+                    this.originalVideos.set(bvid, { ...currentVideo });
+                }
+
+                const base = this.changes.get(bvid) || currentVideo;
+                const updated = { ...base, ...patch };
+                this.changes.set(bvid, updated);
+                this.videos = this.videos.map(v => v.bvid === bvid ? { ...v, ...patch } : v);
+            }
+
             saveChange(bvid) {
                 const staffInfo = document.getElementById('staffInfo').value;
                 this.currentEditingData.staff_info = staffInfo;
-
-                if (!this.originalVideos.has(bvid)) {
-                    const original = this.videos.find(v => v.bvid === bvid);
-                    if (original) {
-                        this.originalVideos.set(bvid, { ...original });
-                    }
-                }
-
-                this.changes.set(bvid, { ...this.currentEditingData });
+                this.applyLocalChange(bvid, this.currentEditingData);
                 this.closeEditPanel();
-                
-                this.videos = this.videos.map(v => 
-                    v.bvid === bvid ? { ...v, ...this.currentEditingData } : v
-                );
+                this.applyRecordingFilters();
+                this.updateChangesPanel();
+            }
+
+            toggleVideoSelection(bvid, checked) {
+                if (checked) {
+                    this.selectedVideos.add(bvid);
+                } else {
+                    this.selectedVideos.delete(bvid);
+                }
+                this.applyRecordingFilters();
+            }
+
+            selectVisibleVideos() {
+                this.getVisibleVideos().forEach(video => this.selectedVideos.add(video.bvid));
+                this.applyRecordingFilters();
+            }
+
+            clearSelection() {
+                this.selectedVideos.clear();
+                this.applyRecordingFilters();
+            }
+
+            batchMarkExamined() {
+                if (this.selectedVideos.size === 0) return;
+
+                Array.from(this.selectedVideos).forEach(bvid => {
+                    this.applyLocalChange(bvid, { is_examined: true });
+                });
+
+                this.selectedVideos.clear();
                 this.applyRecordingFilters();
                 this.updateChangesPanel();
             }
@@ -1774,6 +2011,7 @@
 
             removeChange(bvid) {
                 this.changes.delete(bvid);
+                this.selectedVideos.delete(bvid);
                 const original = this.originalVideos.get(bvid);
                 if (original) {
                     this.videos = this.videos.map(v => 
@@ -1788,9 +2026,8 @@
                         );
                     }
                 }
-                this.renderVideos();
+                this.applyRecordingFilters();
                 this.updateChangesPanel();
-                this.updateStats();
             }
 
             clearChanges() {
@@ -1804,9 +2041,9 @@
                 
                 this.changes.clear();
                 this.originalVideos.clear();
-                this.renderVideos();
+                this.selectedVideos.clear();
+                this.applyRecordingFilters();
                 this.updateChangesPanel();
-                this.updateStats();
             }
 
             showSubmitModal() {
@@ -1850,9 +2087,11 @@
 
                     alert('提交成功!');
                     this.changes.clear();
+                    this.originalVideos.clear();
+                    this.selectedVideos.clear();
                     this.hideModal();
                     this.updateChangesPanel();
-                    this.loadVideos();
+                    await this.loadVideos({ force: true });
                 } catch (error) {
                     alert('提交失败: ' + error.message);
                 }

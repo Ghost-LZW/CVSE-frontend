@@ -102,7 +102,7 @@ async def get_videos_async(
 
     client = await CVSE_Client.create(CVSE_HOST, CVSE_PORT, auth_key)
 
-    get_unexamined = examined == "unexamined" or examined == ""
+    get_unexamined = examined in {"unexamined", "", "false", "no"}
     get_unincluded = True
 
     indices = await client.getAll(
@@ -127,18 +127,21 @@ async def get_videos_async(
     filtered = formatted_videos
 
     if keyword:
+        normalized_keyword = keyword.lower()
         filtered = [
             v
             for v in filtered
-            if keyword.lower() in v["title"].lower()
-            or keyword.lower() in v["uploader"].lower()
+            if normalized_keyword in v["title"].lower()
+            or normalized_keyword in v["uploader"].lower()
+            or normalized_keyword in v["desc"].lower()
+            or any(normalized_keyword in tag.lower() for tag in v["tags"])
         ]
 
     if bvid:
         filtered = [v for v in filtered if bvid.lower() in v["bvid"].lower()]
 
     if avid:
-        filtered = [v for v in filtered if avid in v["avid"]]
+        filtered = [v for v in filtered if avid.lower() in v["avid"].lower()]
 
     if rank_filter != "all":
         if rank_filter == "unrecorded":
@@ -146,10 +149,12 @@ async def get_videos_async(
         else:
             filtered = [v for v in filtered if rank_filter in v["ranks"]]
 
-    if examined == "yes":
-        filtered = [v for v in filtered if v["is_examined"]]
-    elif examined == "no":
+    if examined in {"yes", "true"}:
+        filtered = [v for v in filtered if v["is_examined"] and len(v["ranks"]) > 0]
+    elif examined in {"no", "false"}:
         filtered = [v for v in filtered if not v["is_examined"]]
+    elif examined == "exclusion":
+        filtered = [v for v in filtered if v["is_examined"] and len(v["ranks"]) == 0]
 
     total = len(filtered)
     start = (page - 1) * page_size
