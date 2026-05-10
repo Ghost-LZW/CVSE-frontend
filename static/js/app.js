@@ -1,0 +1,1288 @@
+class CVSEApp {
+    constructor() {
+        this.videos = [];
+        this.originalVideos = new Map();
+        this.changes = new Map();
+        this.selectedVideos = new Set();
+        this.currentPage = 'recording';
+        this.currentDate = new Date().toISOString().slice(0, 10);
+        this.currentPageSize = 50;
+        this.currentPageIndex = 1;
+        this.previewData = null;
+        this.previewTotal = 0;
+        this.previewPage = 1;
+        this.previewPageSize = 20;
+        this.previewRank = 'domestic';
+        this.previewIndex = 1;
+        this.totalItems = 0;
+        this.totalPages = 0;
+        this.stats = this.getEmptyStats();
+        this.layoutMode = localStorage.getItem('cvse_layout_mode') || 'double';
+        this.lastRequestSignature = '';
+        this.changesPanelOffset = 0;
+        this.changesPanelObserver = null;
+        this.changesPanelScrollTimer = null;
+        this.init();
+    }
+
+    init() {
+        this.setupNavigation();
+        this.setupFilters();
+        this.setupChangesPanel();
+        this.setupDebugPanel();
+        this.setupSettingsModal();
+        this.loadApiKey();
+        document.getElementById('dateFilter').value = this.currentDate;
+        document.getElementById('currentPage').value = this.currentPageIndex;
+        document.getElementById('currentPageBottom').value = this.currentPageIndex;
+        document.getElementById('layoutModeSelect').value = this.layoutMode;
+        this.applyLayoutMode();
+        this.updateSelectionBar([]);
+        this.loadVideos({ force: true });
+    }
+
+    setupNavigation() {
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(`${btn.dataset.page}-page`).classList.add('active');
+                this.currentPage = btn.dataset.page;
+            });
+        });
+    }
+
+    setupFilters() {
+        document.getElementById('searchBtn').addEventListener('click', () => this.searchVideos());
+        document.getElementById('refreshBtn').addEventListener('click', () => this.refreshVideos());
+
+        ['bvidFilter', 'avidFilter', 'searchKeyword'].forEach(id => {
+            document.getElementById(id).addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.searchVideos();
+            });
+        });
+
+        document.getElementById('layoutModeSelect').addEventListener('change', (e) => this.setLayoutMode(e.target.value));
+        document.getElementById('pageSizeSelect').addEventListener('change', () => this.searchVideos());
+        document.getElementById('dateFilter').addEventListener('input', (e) => this.limitDateYear(e.target));
+        document.getElementById('dateFilter').addEventListener('change', (e) => this.limitDateYear(e.target));
+
+        document.getElementById('calculateBtn').addEventListener('click', () => this.calculateRankings());
+        document.getElementById('getPreviewBtn').addEventListener('click', () => this.getPreview());
+        document.getElementById('previewPageSize').addEventListener('change', () => {
+            this.previewPage = 1;
+            this.getPreview();
+        });
+        document.getElementById('previewRank').addEventListener('change', () => {
+            this.previewPage = 1;
+        });
+        document.getElementById('previewIndex').addEventListener('change', () => {
+            this.previewPage = 1;
+        });
+        document.getElementById('previewPrevPageBtn').addEventListener('click', () => this.previewChangePage(-1));
+        document.getElementById('previewNextPageBtn').addEventListener('click', () => this.previewChangePage(1));
+
+        document.getElementById('pikaSearchBtn').addEventListener('click', () => this.pikaSearch());
+        document.getElementById('pikaKeyword').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.pikaSearch();
+        });
+
+        document.getElementById('selectVisibleBtn').addEventListener('click', () => this.selectVisibleVideos());
+        document.getElementById('clearSelectionBtn').addEventListener('click', () => this.clearSelection());
+        document.getElementById('batchMarkExaminedBtn').addEventListener('click', () => this.batchMarkExamined());
+    }
+
+    setupChangesPanel() {
+        document.getElementById('clearChangesBtn').addEventListener('click', () => this.clearChanges());
+        document.getElementById('submitChangesBtn').addEventListener('click', () => this.showSubmitModal());
+        document.getElementById('modalClose').addEventListener('click', () => this.hideModal());
+        document.getElementById('modalCancel').addEventListener('click', () => this.hideModal());
+        document.getElementById('modalOverlay').addEventListener('click', () => this.hideModal());
+        document.getElementById('modalConfirm').addEventListener('click', () => this.submitChanges());
+        this.bindPaginationControls('');
+        this.bindPaginationControls('Bottom');
+
+        const panel = document.getElementById('changesPanel');
+        if ('ResizeObserver' in window) {
+            this.changesPanelObserver = new ResizeObserver(() => this.syncChangesPanelOffset());
+            this.changesPanelObserver.observe(panel);
+        }
+        window.addEventListener('resize', () => this.syncChangesPanelOffset());
+        this.syncChangesPanelOffset();
+    }
+
+    setupDebugPanel() {
+        document.getElementById('debugSendBtn').addEventListener('click', () => this.sendDebugRequest());
+        document.getElementById('debugEndpoint').addEventListener('change', (e) => {
+            const params = document.getElementById('debugParams');
+            switch(e.target.value) {
+                case '/api/videos':
+                    params.value = '{\n  "keyword": "",\n  "rank": "all",\n  "examined": "",\n  "page": 1,\n  "page_size": 20\n}';
+                    break;
+                case '/api/video/BVxxx':
+                    params.value = '';
+                    break;
+                case '/api/submit-changes':
+                    params.value = '{\n  "changes": [\n    {\n      "bvid": "BVxxx",\n      "ranks": ["domestic", "sv"],\n      "is_examined": true,\n      "is_republish": false\n    }\n  ]\n}';
+                    break;
+                case '/api/calculate-rankings':
+                    params.value = '{\n  "rank": "domestic",\n  "index": 1,\n  "contain_unexamined": false,\n  "lock": false\n}';
+                    break;
+            }
+        });
+        document.getElementById('debugParams').value = '{\n  "keyword": "",\n  "rank": "all",\n  "examined": "",\n  "date": "2026-02-21",\n  "page": 1,\n  "page_size": 20\n}';
+    }
+
+    setupSettingsModal() {
+        document.getElementById('settingsBtn').addEventListener('click', () => this.showSettingsModal());
+        document.getElementById('settingsModalClose').addEventListener('click', () => this.hideSettingsModal());
+        document.getElementById('settingsModalCancel').addEventListener('click', () => this.hideSettingsModal());
+        document.getElementById('settingsModalOverlay').addEventListener('click', () => this.hideSettingsModal());
+        document.getElementById('settingsModalSave').addEventListener('click', () => this.saveApiKey());
+        document.getElementById('validateApiKeyBtn').addEventListener('click', () => this.validateApiKey());
+        document.getElementById('clearApiKeyBtn').addEventListener('click', () => this.clearApiKey());
+    }
+
+    loadApiKey() {
+        const savedKey = localStorage.getItem('cvse_api_key');
+        if (savedKey) {
+            document.getElementById('apiKeyInput').value = savedKey;
+        }
+    }
+
+    showSettingsModal() {
+        document.getElementById('settingsModal').classList.add('open');
+        document.getElementById('settingsModalOverlay').classList.add('open');
+        this.loadApiKey();
+    }
+
+    hideSettingsModal() {
+        document.getElementById('settingsModal').classList.remove('open');
+        document.getElementById('settingsModalOverlay').classList.remove('open');
+    }
+
+    saveApiKey() {
+        const apiKey = document.getElementById('apiKeyInput').value.trim();
+        if (apiKey) {
+            localStorage.setItem('cvse_api_key', apiKey);
+            this.hideSettingsModal();
+            alert('API Key 已保存');
+        } else {
+            alert('请输入 API Key');
+        }
+    }
+
+    async validateApiKey() {
+        const apiKey = document.getElementById('apiKeyInput').value.trim();
+        const statusEl = document.getElementById('apiKeyStatus');
+        if (!apiKey) {
+            statusEl.textContent = '请先输入 API Key';
+            statusEl.style.color = 'var(--danger)';
+            return;
+        }
+        statusEl.textContent = '验证中...';
+        statusEl.style.color = 'var(--gray-500)';
+        try {
+            const response = await fetch('/api/auth/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ auth_key: apiKey })
+            });
+            const result = await response.json();
+            if (result.success && result.valid) {
+                statusEl.textContent = '✓ API Key 有效';
+                statusEl.style.color = 'var(--success)';
+            } else {
+                statusEl.textContent = '✗ ' + (result.message || 'API Key 无效');
+                statusEl.style.color = 'var(--danger)';
+            }
+        } catch (e) {
+            statusEl.textContent = '✗ 验证失败: ' + e.message;
+            statusEl.style.color = 'var(--danger)';
+        }
+    }
+
+    clearApiKey() {
+        if (confirm('确定要清除已保存的 API Key 吗？')) {
+            localStorage.removeItem('cvse_api_key');
+            document.getElementById('apiKeyInput').value = '';
+            document.getElementById('apiKeyStatus').textContent = '已清除';
+            document.getElementById('apiKeyStatus').style.color = 'var(--gray-500)';
+        }
+    }
+
+    getAuthHeaders() {
+        const apiKey = localStorage.getItem('cvse_api_key');
+        if (apiKey) {
+            return { 'X-Auth-Key': apiKey };
+        }
+        return {};
+    }
+
+    getAuthQueryParam() {
+        const apiKey = localStorage.getItem('cvse_api_key');
+        if (apiKey) {
+            return `&auth_key=${encodeURIComponent(apiKey)}`;
+        }
+        return '';
+    }
+
+    normalizeCoverUrl(url) {
+        if (!url) return '';
+        if (url.startsWith('//')) return `https:${url}`;
+        if (url.startsWith('http://')) return `https://${url.slice(7)}`;
+        return url;
+    }
+
+    getCoverFallbackDataUrl() {
+        return "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 160 90%22><rect fill=%22%23e2e8f0%22 width=%22160%22 height=%2290%22/><text fill=%22%2394a3b8%22 x=%2280%22 y=%2245%22 text-anchor=%22middle%22>无封面</text></svg>";
+    }
+
+    limitDateYear(input) {
+        if (!input.value) return;
+        const match = input.value.match(/^(\d+)(-\d{2}-\d{2})$/);
+        if (!match) return;
+        const [, year, suffix] = match;
+        if (year.length > 4) {
+            input.value = `${year.slice(0, 4)}${suffix}`;
+        }
+    }
+
+    setLayoutMode(mode) {
+        this.layoutMode = mode === 'single' ? 'single' : 'double';
+        localStorage.setItem('cvse_layout_mode', this.layoutMode);
+        this.applyLayoutMode();
+    }
+
+    applyLayoutMode() {
+        const videoList = document.getElementById('videoList');
+        videoList.classList.toggle('layout-double', this.layoutMode === 'double');
+        videoList.classList.toggle('layout-single', this.layoutMode === 'single');
+    }
+
+    searchVideos() {
+        document.getElementById('currentPage').value = 1;
+        document.getElementById('currentPageBottom').value = 1;
+        this.loadVideos({ force: true, resetPage: true });
+    }
+
+    async refreshVideos() {
+        await this.loadVideos({ force: true });
+    }
+
+    async loadVideos({ force = false, resetPage = false } = {}) {
+        const videoList = document.getElementById('videoList');
+        const dateFilter = document.getElementById('dateFilter').value;
+        const pageSize = Number(document.getElementById('pageSizeSelect').value);
+        const filters = this.getRecordingFilters();
+        const pageIndex = resetPage ? 1 : Math.max(1, Number(document.getElementById('currentPage').value) || 1);
+        const requestSignature = JSON.stringify({ dateFilter, pageSize, pageIndex, filters });
+
+        if (force || requestSignature !== this.lastRequestSignature) {
+            videoList.innerHTML = '<div class="loading">正在向服务器请求数据...</div>';
+            this.currentPageIndex = pageIndex;
+            this.resetStats();
+            this.currentDate = dateFilter;
+            this.currentPageSize = pageSize;
+            try {
+                const params = new URLSearchParams({
+                    page_size: String(pageSize),
+                    page: String(this.currentPageIndex),
+                    date: dateFilter,
+                    keyword: filters.keyword,
+                    rank: filters.rank,
+                    examined: filters.examined,
+                    bvid: filters.bvid,
+                    avid: filters.avid,
+                });
+                let url = `/api/videos?${params.toString()}`;
+                const authKey = localStorage.getItem('cvse_api_key');
+                if (authKey) {
+                    url += `&auth_key=${encodeURIComponent(authKey)}`;
+                }
+
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+
+                this.videos = result.data;
+                this.totalItems = result.total || 0;
+                this.totalPages = this.totalItems > 0 ? Math.ceil(this.totalItems / pageSize) : 0;
+                this.stats = { ...this.getEmptyStats(), ...(result.stats || {}) };
+                this.lastRequestSignature = requestSignature;
+                this.selectedVideos.clear();
+
+                if (this.totalPages > 0 && this.currentPageIndex > this.totalPages) {
+                    this.currentPageIndex = this.totalPages;
+                    this.setPaginationInputs(this.currentPageIndex);
+                    await this.loadVideos({ force: true });
+                    return;
+                }
+            } catch (error) {
+                this.totalItems = 0;
+                this.totalPages = 0;
+                this.stats = this.getEmptyStats();
+                this.updatePagination();
+                videoList.innerHTML = `<div class="empty-state">
+                    <div class="empty-state-icon">❌</div>
+                    <div>加载失败: ${error.message}</div>
+                </div>`;
+                return;
+            }
+        }
+
+        this.applyRecordingFilters();
+    }
+
+    getRecordingFilters() {
+        return {
+            keyword: document.getElementById('searchKeyword').value.trim(),
+            rank: document.getElementById('rankFilter').value,
+            examined: document.getElementById('examinedFilter').value,
+            bvid: document.getElementById('bvidFilter').value.trim(),
+            avid: document.getElementById('avidFilter').value.trim(),
+        };
+    }
+
+    applyRecordingFilters() {
+        const videoData = this.getVisibleVideos();
+        this.updateStats();
+        this.renderVideos(videoData);
+        this.updatePagination();
+    }
+
+    getVisibleVideos() {
+        return this.filterVideos(this.videos, this.getRecordingFilters());
+    }
+
+    filterVideos(videos = this.videos, filters) {
+        const { keyword, rank, examined, bvid, avid } = filters;
+
+        let videoData = videos;
+        const normalizedKeyword = keyword.toLowerCase();
+
+        if (keyword) {
+            videoData = videoData.filter(v =>
+                v.title.toLowerCase().includes(normalizedKeyword)
+                || v.desc.toLowerCase().includes(normalizedKeyword)
+                || v.uploader.toLowerCase().includes(normalizedKeyword)
+                || (v.tags || []).some(tag => tag.toLowerCase().includes(normalizedKeyword))
+            );
+        }
+
+        if (rank !== 'all') {
+            videoData = videoData.filter(v => v.ranks.includes(rank));
+        }
+
+        switch (examined) {
+            case 'true':
+                videoData = videoData.filter(v => v.is_examined && v.ranks.length > 0);
+                break;
+            case 'false':
+                videoData = videoData.filter(v => !v.is_examined);
+                break;
+            case 'exclusion':
+                videoData = videoData.filter(v => v.is_examined && v.ranks.length === 0);
+                break;
+        }
+
+        if (bvid) {
+            videoData = videoData.filter(v => v.bvid.toLowerCase().includes(bvid.toLowerCase()));
+        }
+
+        if (avid) {
+            videoData = videoData.filter(v => v.avid.toLowerCase().includes(avid.toLowerCase()));
+        }
+        return videoData;
+    }
+
+    resetStats() {
+        this.setPaginationInputs(this.currentPageIndex);
+        this.setPaginationStatuses('第0页 / 共0页');
+        document.getElementById('totalCount').textContent = '-';
+        document.getElementById('domesticCount').textContent = '-';
+        document.getElementById('svCount').textContent = '-';
+        document.getElementById('utauCount').textContent = '-';
+        document.getElementById('republishCount').textContent = '-';
+        document.getElementById('uncheckCount').textContent = '-';
+        document.getElementById('exclusionCount').textContent = '-';
+    }
+
+    getEmptyStats() {
+        return {
+            total: 0,
+            domestic: 0,
+            sv: 0,
+            utau: 0,
+            republish: 0,
+            uncheck: 0,
+            exclusion: 0,
+        };
+    }
+
+    updateStats() {
+        const stats = { ...this.getEmptyStats(), ...(this.stats || {}) };
+
+        this.setPaginationInputs(this.currentPageIndex);
+        document.getElementById('totalCount').textContent = stats.total || 0;
+        document.getElementById('domesticCount').textContent = stats.domestic || 0;
+        document.getElementById('svCount').textContent = stats.sv || 0;
+        document.getElementById('utauCount').textContent = stats.utau || 0;
+        document.getElementById('republishCount').textContent = stats.republish || 0;
+        document.getElementById('uncheckCount').textContent = stats.uncheck || 0;
+        document.getElementById('exclusionCount').textContent = stats.exclusion || 0;
+    }
+
+    renderVideos(videos = this.videos) {
+        const videoList = document.getElementById('videoList');
+        this.reconcileSelection(videos);
+
+        if (videos.length === 0) {
+            videoList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div>暂无数据</div></div>';
+            this.updateSelectionBar(videos);
+            this.applyLayoutMode();
+            return;
+        }
+
+        videoList.innerHTML = videos.map((video, index) => this.createVideoCard(video, index)).join('');
+        this.updateSelectionBar(videos);
+        this.applyLayoutMode();
+    }
+
+    reconcileSelection(videos = this.videos) {
+        const visibleBvids = new Set(videos.map(video => video.bvid));
+        this.selectedVideos = new Set(
+            Array.from(this.selectedVideos).filter(bvid => visibleBvids.has(bvid))
+        );
+    }
+
+    updateSelectionBar(videos = this.videos) {
+        const selectionCount = this.selectedVideos.size;
+        document.getElementById('selectionSummary').textContent = `已选择 ${selectionCount} 项`;
+        document.getElementById('selectVisibleBtn').disabled = videos.length === 0;
+        document.getElementById('clearSelectionBtn').disabled = selectionCount === 0;
+        document.getElementById('batchMarkExaminedBtn').disabled = selectionCount === 0;
+    }
+
+    updatePagination() {
+        const prevDisabled = this.currentPageIndex <= 1 || this.totalPages === 0;
+        const nextDisabled = this.totalPages === 0 || this.currentPageIndex >= this.totalPages;
+
+        ['prevPageBtn', 'prevPageBtnBottom'].forEach(id => document.getElementById(id).disabled = prevDisabled);
+        ['nextPageBtn', 'nextPageBtnBottom'].forEach(id => document.getElementById(id).disabled = nextDisabled);
+        this.setPaginationInputs(this.currentPageIndex);
+        this.setPaginationStatuses(this.totalPages === 0
+            ? '第0页 / 共0页'
+            : `第${this.currentPageIndex}页 / 共${this.totalPages}页`);
+    }
+
+    bindPaginationControls(suffix) {
+        const input = document.getElementById(`currentPage${suffix}`);
+        document.getElementById(`prevPageBtn${suffix}`).addEventListener('click', () => this.changePage(-1));
+        document.getElementById(`nextPageBtn${suffix}`).addEventListener('click', () => this.changePage(1));
+        document.getElementById(`goPageBtn${suffix}`).addEventListener('click', () => this.goToPage(input.value));
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.goToPage(input.value);
+        });
+        input.addEventListener('input', () => {
+            const otherInput = document.getElementById(suffix ? 'currentPage' : 'currentPageBottom');
+            otherInput.value = input.value;
+        });
+    }
+
+    setPaginationInputs(page) {
+        document.getElementById('currentPage').value = page;
+        document.getElementById('currentPageBottom').value = page;
+    }
+
+    setPaginationStatuses(text) {
+        document.getElementById('pageStatus').textContent = text;
+        document.getElementById('pageStatusBottom').textContent = text;
+    }
+
+    changePage(delta) {
+        const deltaValue = Number(delta || 0);
+        const targetPage = Math.max(
+            1,
+            Number.isFinite(deltaValue) ? this.currentPageIndex + deltaValue : this.currentPageIndex
+        );
+        this.setPaginationInputs(targetPage);
+        this.loadVideos({ force: true });
+    }
+
+    goToPage(page) {
+        const targetPage = Math.max(1, Number(page) || 1);
+        this.setPaginationInputs(targetPage);
+        this.loadVideos({ force: true });
+    }
+
+    createVideoCard(video, index) {
+        const hasChange = this.changes.has(video.bvid);
+        const isSelected = this.selectedVideos.has(video.bvid);
+        const changeClass = `${hasChange ? 'edited' : ''} ${isSelected ? 'selected' : ''}`.trim();
+        const coverUrl = this.normalizeCoverUrl(video.cover);
+        const fallbackCover = this.getCoverFallbackDataUrl();
+
+        const rankTags = video.ranks.map(r =>
+            `<span class="tag tag-rank-${r}">${r === 'domestic' ? '国产' : r === 'sv' ? 'SV' : 'UTAU'}</span>`
+        ).join('');
+
+        const exclusionTag = video.is_examined && video.ranks.length === 0
+            ? '<span class="tag tag-exclusion">排除</span>'
+            : '';
+
+
+        const statusTag = video.is_examined
+            ? '<span class="tag tag-examined">已收录</span>'
+            : '<span class="tag tag-uncheck">待收录</span>';
+
+        const republishTag = video.is_republish
+            ? '<span class="tag tag-republish">转载</span>'
+            : '';
+
+        return `
+            <div class="video-item ${changeClass}" data-bvid="${video.bvid}">
+                <div class="video-select">
+                    <input class="video-checkbox" type="checkbox" ${isSelected ? 'checked' : ''} onchange="app.toggleVideoSelection('${video.bvid}', this.checked)">
+                    <div class="video-content">
+                        <img class="video-cover" src="${coverUrl || fallbackCover}" alt="封面" crossorigin="anonymous" referrerpolicy="no-referrer" loading="lazy" decoding="async"
+                            onerror="this.onerror=null;this.src='${fallbackCover}'"
+                            onclick="window.open('https://www.bilibili.com/video/${video.bvid}', '_blank')">
+                        <div class="video-info">
+                            <div class="video-title">${video.title}</div>
+                            <div class="video-meta">
+                                <span class="video-meta-item">
+                                    <span class="video-uploader">${video.uploader}</span>
+                                </span>
+                                <span class="video-meta-item">⏱ ${this.formatDuration(video.duration)}</span>
+                                <span class="video-meta-item">📅 ${video.pubdate}</span>
+                                <span class="video-meta-item">${video.avid}</span>
+                            </div>
+                            <div class="video-tags">
+                                ${rankTags}
+                                ${statusTag}
+                                ${republishTag}
+                                ${exclusionTag}
+                            </div>
+                            <div class="video-actions">
+                                <button class="btn btn-primary btn-sm" onclick="app.openEditPanel('${video.bvid}')">✏️ 编辑</button>
+                                <button class="btn btn-secondary btn-sm" onclick="window.open('https://www.bilibili.com/video/${video.bvid}', '_blank')">🔗 跳转</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    formatDuration(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    openEditPanel(bvid) {
+        const video = this.videos.find(v => v.bvid === bvid);
+        if (!video) return;
+
+        const change = this.changes.get(bvid) || { ...video };
+
+        const panel = document.createElement('div');
+        panel.className = 'edit-panel open';
+        panel.id = 'editPanel';
+        panel.innerHTML = `
+            <div class="edit-panel-header">
+                <div class="edit-panel-title">编辑: ${video.bvid}</div>
+                <button class="edit-panel-close" onclick="app.closeEditPanel()">&times;</button>
+            </div>
+            <div class="edit-panel-body">
+                <div class="form-group">
+                    <label class="form-label">标题</label>
+                    <input class="input" value="${change.title}" readonly style="width: 100%;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">UP主</label>
+                    <input class="input" value="${change.uploader}" readonly style="width: 100%;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">简介</label>
+                    <textarea class="input" readonly style="width: 100%; height: 80px; resize: vertical;">${change.desc || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">收录期刊</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label" id="rank-domestic">
+                            <input type="checkbox" ${change.ranks.includes('domestic') ? 'checked' : ''} onchange="app.toggleRank('domestic')">
+                            国产类
+                        </label>
+                        <label class="checkbox-label" id="rank-sv">
+                            <input type="checkbox" ${change.ranks.includes('sv') ? 'checked' : ''} onchange="app.toggleRank('sv')">
+                            SV类
+                        </label>
+                        <label class="checkbox-label" id="rank-utau">
+                            <input type="checkbox" ${change.ranks.includes('utau') ? 'checked' : ''} onchange="app.toggleRank('utau')">
+                            UTAU类
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">搬运标记</label>
+                    <div class="form-row">
+                        <label class="checkbox-label" id="republish-label">
+                            <input type="checkbox" ${change.is_republish ? 'checked' : ''} id="isRepublish" onchange="app.updateRepublish()">
+                            转载
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Staff信息</label>
+                    <input class="input" id="staffInfo" value="${change.staff_info || ''}" style="width: 100%;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">收录状态</label>
+                    <div class="form-row">
+                        <label class="checkbox-label">
+                            <input type="checkbox" ${change.is_examined ? 'checked' : ''} id="isExamined" onchange="app.updateExamined()">
+                            已完成收录
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="edit-panel-footer">
+                <button class="btn btn-secondary" onclick="app.closeEditPanel()">取消</button>
+                <button class="btn btn-primary" onclick="app.saveChange('${bvid}')">保存到本地</button>
+            </div>
+        `;
+
+        document.body.appendChild(panel);
+        this.currentEditingBvid = bvid;
+        this.currentEditingData = { ...change };
+
+        panel.addEventListener('click', (e) => {
+            if (e.target === panel) this.closeEditPanel();
+        });
+    }
+
+    closeEditPanel() {
+        const panel = document.getElementById('editPanel');
+        if (panel) panel.remove();
+        this.currentEditingBvid = null;
+        this.currentEditingData = null;
+    }
+
+    toggleRank(rank) {
+        const idx = this.currentEditingData.ranks.indexOf(rank);
+        if (idx >= 0) {
+            this.currentEditingData.ranks.splice(idx, 1);
+        } else {
+            this.currentEditingData.ranks.push(rank);
+        }
+    }
+
+    updateRepublish() {
+        this.currentEditingData.is_republish = document.getElementById('isRepublish').checked;
+    }
+
+    updateExamined() {
+        this.currentEditingData.is_examined = document.getElementById('isExamined').checked;
+    }
+
+    applyLocalChange(bvid, patch) {
+        const currentVideo = this.videos.find(v => v.bvid === bvid);
+        if (!currentVideo) return;
+
+        if (!this.originalVideos.has(bvid)) {
+            this.originalVideos.set(bvid, { ...currentVideo });
+        }
+
+        const base = this.changes.get(bvid) || currentVideo;
+        const updated = { ...base, ...patch };
+        this.changes.set(bvid, updated);
+        this.videos = this.videos.map(v => v.bvid === bvid ? { ...v, ...patch } : v);
+    }
+
+    saveChange(bvid) {
+        const staffInfo = document.getElementById('staffInfo').value;
+        this.currentEditingData.staff_info = staffInfo;
+        this.applyLocalChange(bvid, this.currentEditingData);
+        this.closeEditPanel();
+        this.applyRecordingFilters();
+        this.updateChangesPanel();
+    }
+
+    toggleVideoSelection(bvid, checked) {
+        if (checked) {
+            this.selectedVideos.add(bvid);
+        } else {
+            this.selectedVideos.delete(bvid);
+        }
+        this.applyRecordingFilters();
+    }
+
+    selectVisibleVideos() {
+        this.getVisibleVideos().forEach(video => this.selectedVideos.add(video.bvid));
+        this.applyRecordingFilters();
+    }
+
+    clearSelection() {
+        this.selectedVideos.clear();
+        this.applyRecordingFilters();
+    }
+
+    batchMarkExamined() {
+        if (this.selectedVideos.size === 0) return;
+
+        Array.from(this.selectedVideos).forEach(bvid => {
+            this.applyLocalChange(bvid, { is_examined: true });
+        });
+
+        this.selectedVideos.clear();
+        this.applyRecordingFilters();
+        this.updateChangesPanel();
+    }
+
+    updateChangesPanel() {
+        const panel = document.getElementById('changesPanel');
+        const count = document.getElementById('changesCount');
+        const list = document.getElementById('changesList');
+
+        count.textContent = this.changes.size;
+
+        if (this.changes.size > 0) {
+            panel.classList.add('open');
+        } else {
+            panel.classList.remove('open');
+        }
+
+        list.innerHTML = Array.from(this.changes.entries()).map(([bvid, data]) => {
+            const changesDesc = [];
+            if (data.ranks && data.ranks.length) changesDesc.push(`期刊: ${data.ranks.join(', ')}`);
+            if ('is_examined' in data) changesDesc.push(data.is_examined ? '已收录' : '未收录');
+            if ('is_republish' in data) changesDesc.push(data.is_republish ? '转载' : '自制');
+            if (data.staff_info) changesDesc.push(`Staff: ${data.staff_info}`);
+
+            return `
+                <div class="change-item">
+                    <div class="change-item-info">
+                        <div class="change-item-title">${data.title || bvid}</div>
+                        <div class="change-item-desc">${changesDesc.join(' | ')}</div>
+                    </div>
+                    <button class="change-item-remove" onclick="app.removeChange('${bvid}')">&times;</button>
+                </div>
+            `;
+        }).join('');
+
+        this.syncChangesPanelOffset();
+    }
+
+    syncChangesPanelOffset() {
+        const panel = document.getElementById('changesPanel');
+        const offset = panel.classList.contains('open') ? panel.offsetHeight : 0;
+        const previousOffset = this.changesPanelOffset;
+        const distanceFromBottom = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+
+        document.documentElement.style.setProperty('--changes-panel-offset', `${offset}px`);
+        this.changesPanelOffset = offset;
+
+        if (offset > previousOffset && distanceFromBottom <= previousOffset + 32) {
+            clearTimeout(this.changesPanelScrollTimer);
+            this.changesPanelScrollTimer = setTimeout(() => {
+                window.scrollTo(0, document.documentElement.scrollHeight);
+            }, 320);
+        }
+    }
+
+    removeChange(bvid) {
+        this.changes.delete(bvid);
+        this.selectedVideos.delete(bvid);
+        const original = this.originalVideos.get(bvid);
+        if (original) {
+            this.videos = this.videos.map(v =>
+                v.bvid === bvid ? { ...original } : v
+            );
+            this.originalVideos.delete(bvid);
+        } else {
+            const originalVideo = this.videos.find(v => v.bvid === bvid);
+            if (originalVideo) {
+                this.videos = this.videos.map(v =>
+                    v.bvid === bvid ? { ...originalVideo } : v
+                );
+            }
+        }
+        this.applyRecordingFilters();
+        this.updateChangesPanel();
+    }
+
+    clearChanges() {
+        if (this.changes.size === 0) return;
+
+        for (const [bvid, original] of this.originalVideos.entries()) {
+            this.videos = this.videos.map(v =>
+                v.bvid === bvid ? { ...original } : v
+            );
+        }
+
+        this.changes.clear();
+        this.originalVideos.clear();
+        this.selectedVideos.clear();
+        this.applyRecordingFilters();
+        this.updateChangesPanel();
+    }
+
+    showSubmitModal() {
+        if (this.changes.size === 0) return;
+        document.getElementById('submitCount').textContent = this.changes.size;
+        document.getElementById('modalOverlay').classList.add('open');
+        document.getElementById('submitModal').classList.add('open');
+    }
+
+    hideModal() {
+        document.getElementById('modalOverlay').classList.remove('open');
+        document.getElementById('submitModal').classList.remove('open');
+    }
+
+    async submitChanges() {
+        const changes = Array.from(this.changes.values()).map(c => ({
+            avid: c.avid,
+            bvid: c.bvid,
+            ranks: c.ranks,
+            is_examined: c.is_examined,
+            is_republish: c.is_republish,
+            staff_info: c.staff_info
+        }));
+
+        try {
+            const authHeaders = this.getAuthHeaders();
+            const response = await fetch('/api/submit-changes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...authHeaders
+                },
+                body: JSON.stringify({ changes })
+            });
+            const result = await response.json();
+
+            if (!result.success) {
+                alert('提交失败: ' + result.error);
+                return;
+            }
+
+            alert('提交成功!');
+            this.changes.clear();
+            this.originalVideos.clear();
+            this.selectedVideos.clear();
+            this.hideModal();
+            this.updateChangesPanel();
+            await this.loadVideos({ force: true });
+        } catch (error) {
+            alert('提交失败: ' + error.message);
+        }
+    }
+
+    async calculateRankings() {
+        const rank = document.getElementById('previewRank').value;
+        const indexInput = Number.parseInt(document.getElementById('previewIndex').value, 10);
+        const index = Number.isNaN(indexInput) ? 1 : Math.max(1, indexInput);
+        document.getElementById('previewIndex').value = index;
+        const preview = document.getElementById('rankingPreview');
+        const authHeaders = this.getAuthHeaders();
+        const totalDuration = 90; // 秒
+
+        // 确认对话框
+        const rankNames = { domestic: '国产榜', sv: 'SV刊', utau: 'UTAU刊' };
+        const rankName = rankNames[rank] || rank.toUpperCase();
+        if (!confirm(`确定要重新计算 ${rankName} 第 ${index} 期排行榜吗？\n\n计算过程可能需要约 ${totalDuration} 秒，请耐心等待。`)) {
+            return;
+        }
+
+        // 显示进度条
+        const overlay = document.getElementById('progressOverlay');
+        const bar = document.getElementById('progressBar');
+        const percentEl = document.getElementById('progressPercent');
+        const timeEl = document.getElementById('progressTime');
+        const titleEl = document.getElementById('progressTitle');
+
+        titleEl.textContent = `${rankName} 第${index}期排行榜计算中...`;
+        bar.style.width = '0%';
+        percentEl.textContent = '0';
+        timeEl.textContent = '0';
+        overlay.classList.add('open');
+
+        // 启动动画计时器：90 秒内从 0% 走到 95%
+        let elapsed = 0;
+        const startTime = Date.now();
+
+        const timer = setInterval(() => {
+            elapsed = (Date.now() - startTime) / 1000;
+            if (elapsed > totalDuration) elapsed = totalDuration;
+            const percent = Math.min(95, (elapsed / totalDuration) * 95);
+            bar.style.width = percent + '%';
+            percentEl.textContent = Math.round(percent);
+            timeEl.textContent = Math.round(elapsed);
+            if (elapsed >= totalDuration) {
+                clearInterval(timer);
+            }
+        }, 100);
+
+        preview.innerHTML = '<div class="loading">正在计算排行榜...</div>';
+
+        try {
+            const response = await fetch('/api/calculate-rankings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...authHeaders
+                },
+                body: JSON.stringify({ rank, index, contain_unexamined: true, lock: false })
+            });
+
+            if (!response.ok) {
+                clearInterval(timer);
+                overlay.classList.remove('open');
+                try {
+                    const result = await response.json();
+                    preview.innerHTML = `<div class="empty-state">计算失败: HTTP ${response.status} ${result.error}</div>`;
+                } catch {
+                    preview.innerHTML = `<div class="empty-state">计算失败: HTTP ${response.status} ${response.statusText}</div>`;
+                }
+                return;
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                clearInterval(timer);
+                overlay.classList.remove('open');
+                preview.innerHTML = `<div class="empty-state">计算失败: ${result.error}</div>`;
+                return;
+            }
+
+            titleEl.textContent = `${rankName} 第${index}期排行榜计算完成，正在获取预览数据...`;
+
+            // 计算完成后自动获取第1页预览
+            this.previewRank = rank;
+            this.previewIndex = index;
+            this.previewPage = 1;
+            this.previewPageSize = parseInt(document.getElementById('previewPageSize').value);
+
+            const previewResp = await fetch(`/api/ranking-preview?rank=${rank}&index=${index}&page=1&page_size=${this.previewPageSize}${this.getAuthQueryParam()}`, {
+                headers: authHeaders
+            });
+
+            if (!previewResp.ok) {
+                clearInterval(timer);
+                overlay.classList.remove('open');
+                preview.innerHTML = `<div class="empty-state">获取预览失败: HTTP ${previewResp.status}</div>`;
+                return;
+            }
+
+            const previewData = await previewResp.json();
+
+            if (!previewData.success) {
+                clearInterval(timer);
+                overlay.classList.remove('open');
+                preview.innerHTML = `<div class="empty-state">获取预览失败: ${previewData.error}</div>`;
+                return;
+            }
+
+            // 计算完成，进度条跳到 100% 并关闭
+            clearInterval(timer);
+            bar.style.width = '100%';
+            percentEl.textContent = '100';
+            elapsed = (Date.now() - startTime) / 1000;
+            timeEl.textContent = Math.round(elapsed);
+            titleEl.textContent = '✅ ' + titleEl.textContent;
+
+            // 延迟一下让用户看到 100%
+            await new Promise(r => setTimeout(r, 600));
+            overlay.classList.remove('open');
+
+            this.previewData = previewData.data;
+            this.previewTotal = this.previewData.total || this.previewData.stat.count;
+            this.renderPreview();
+        } catch (error) {
+            clearInterval(timer);
+            overlay.classList.remove('open');
+            preview.innerHTML = `<div class="empty-state">计算失败: ${error.message}</div>`;
+        }
+    }
+
+    // 独立预览功能：获取预览数据（不计算排行榜）
+    async getPreview() {
+        const rank = document.getElementById('previewRank').value;
+        const indexInput = Number.parseInt(document.getElementById('previewIndex').value, 10);
+        const index = Number.isNaN(indexInput) ? 1 : Math.max(1, indexInput);
+        document.getElementById('previewIndex').value = index;
+        this.previewRank = rank;
+        this.previewIndex = index;
+        this.previewPage = 1;
+        this.previewPageSize = parseInt(document.getElementById('previewPageSize').value);
+
+        const preview = document.getElementById('rankingPreview');
+        preview.innerHTML = '<div class="loading">正在获取预览数据...</div>';
+        document.getElementById('previewPagination').style.display = 'none';
+
+        try {
+            const url = `/api/ranking-preview?rank=${rank}&index=${index}&page=1&page_size=${this.previewPageSize}${this.getAuthQueryParam()}`;
+            const response = await fetch(url, {
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                preview.innerHTML = `<div class="empty-state">获取预览失败: HTTP ${response.status}</div>`;
+                return;
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                preview.innerHTML = `<div class="empty-state">获取预览失败: ${result.error}</div>`;
+                return;
+            }
+
+            this.previewData = result.data;
+            this.previewTotal = result.data.total || result.data.stat.count;
+            this.renderPreview();
+        } catch (error) {
+            preview.innerHTML = `<div class="empty-state">获取预览失败: ${error.message}</div>`;
+        }
+    }
+
+    // 预览分页切换
+    previewChangePage(delta) {
+        const newPage = this.previewPage + delta;
+        const totalPages = Math.ceil(this.previewTotal / this.previewPageSize) || 1;
+        if (newPage < 1 || newPage > totalPages) return;
+        this.previewPage = newPage;
+
+        const preview = document.getElementById('rankingPreview');
+        preview.innerHTML = '<div class="loading">正在加载...</div>';
+
+        const rank = this.previewRank;
+        const index = this.previewIndex;
+
+        fetch(`/api/ranking-preview?rank=${rank}&index=${index}&page=${this.previewPage}&page_size=${this.previewPageSize}${this.getAuthQueryParam()}`, {
+            headers: this.getAuthHeaders()
+        }).then(r => r.json()).then(result => {
+            if (result.success) {
+                this.previewData = result.data;
+                this.previewTotal = result.data.total || result.data.stat.count;
+                this.renderPreview();
+            } else {
+                preview.innerHTML = `<div class="empty-state">加载失败: ${result.error}</div>`;
+            }
+        }).catch(error => {
+            preview.innerHTML = `<div class="empty-state">加载失败: ${error.message}</div>`;
+        });
+    }
+
+    // 渲染预览数据
+    renderPreview() {
+        const preview = document.getElementById('rankingPreview');
+        const data = this.previewData;
+
+        if (!data || !data.entries || data.entries.length === 0) {
+            preview.innerHTML = `
+                <div class="ranking-card">
+                    <div class="ranking-header">
+                        <div class="ranking-rank">⚠️</div>
+                    </div>
+                    <div>${this.previewRank.toUpperCase()} 第${this.previewIndex}期排行榜暂无视频数据</div>
+                </div>
+            `;
+            document.getElementById('previewPagination').style.display = 'none';
+            return;
+        }
+
+        const stat = data.stat;
+        const entries = data.entries;
+        preview.style.marginTop = '1rem';
+        preview.innerHTML = `
+            <div class="ranking-card">
+                <div class="ranking-header">
+                    <div class="ranking-rank">📊</div>
+                </div>
+                <div>${this.previewRank.toUpperCase()} 第${this.previewIndex}期排行榜</div>
+                <div style="margin-top: 0.5rem; color: var(--gray-500); font-size: 0.875rem;">
+                    视频总数: ${stat.count} | 总播放: ${stat.totalView.toLocaleString()} | 总点赞: ${stat.totalLike.toLocaleString()} | 新投稿: ${stat.totalNew}
+                </div>
+            </div>
+            ${entries.map(e => this.createPreviewCard(e)).join('')}
+        `;
+
+        // 更新分页
+        const totalPages = Math.ceil(this.previewTotal / this.previewPageSize) || 1;
+        const pagination = document.getElementById('previewPagination');
+        pagination.style.display = 'flex';
+        document.getElementById('previewPageInfo').textContent = `第 ${this.previewPage} 页 / 共 ${totalPages} 页（共 ${this.previewTotal} 项）`;
+        document.getElementById('previewPrevPageBtn').disabled = this.previewPage <= 1;
+        document.getElementById('previewNextPageBtn').disabled = this.previewPage >= totalPages;
+    }
+
+    // 创建预览卡片（含编辑和跳转功能）
+    createPreviewCard(e) {
+        const coverUrl = this.normalizeCoverUrl(e.cover);
+        const fallbackCover = this.getCoverFallbackDataUrl();
+
+        return `
+            <div class="ranking-card">
+                <div class="ranking-header">
+                    <div class="ranking-rank">#${e.rank}</div>
+                    <div class="ranking-score">分数: ${e.totalScore.toFixed(1)}</div>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
+                    <img src="${coverUrl || fallbackCover}" style="width: 120px; height: 68px; object-fit: cover; border-radius: 4px; background: var(--gray-200); cursor: pointer;"
+                        crossorigin="anonymous" referrerpolicy="no-referrer" loading="lazy" decoding="async"
+                        onerror="this.onerror=null;this.src='${fallbackCover}'"
+                        onclick="window.open('https://www.bilibili.com/video/${e.bvid}', '_blank')"
+                        title="点击打开B站视频">
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 600; margin-bottom: 0.25rem; cursor: pointer; color: var(--primary);"
+                            onclick="window.open('https://www.bilibili.com/video/${e.bvid}', '_blank')">
+                            ${e.title || e.bvid}
+                        </div>
+                        <div style="font-size: 0.8125rem; color: var(--gray-500); margin-bottom: 0.5rem;">
+                            UP主: ${e.uploader || '未知'}
+                        </div>
+                        <div style="display: flex; gap: 1rem; font-size: 0.8125rem; color: var(--gray-600); flex-wrap: wrap;">
+                            <span>👁 ${(e.view || 0).toLocaleString()}</span>
+                            <span>❤️ ${(e.like || 0).toLocaleString()}</span>
+                            <span>🪙 ${(e.coin || 0).toLocaleString()}</span>
+                            <span>⭐ ${(e.favorite || 0).toLocaleString()}</span>
+                            <span>📤 ${(e.share || 0).toLocaleString()}</span>
+                        </div>
+                        ${e.isNew ? '<span class="tag tag-rank-utau" style="margin-top: 0.5rem; display: inline-block;">新上榜</span>' : ''}
+                    </div>
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--gray-200);">
+                    <button class="btn btn-primary btn-sm" onclick="app.openEditPanelByBvid('${e.bvid}')">✏️ 编辑</button>
+                    <button class="btn btn-secondary btn-sm" onclick="window.open('https://www.bilibili.com/video/${e.bvid}', '_blank')">🔗 跳转</button>
+                </div>
+            </div>
+        `;
+    }
+
+    // 通过 bvid 打开编辑面板（用于预览页面的编辑功能）
+    async openEditPanelByBvid(bvid) {
+        // 先在当前已加载的视频中查找
+        let video = this.videos.find(v => v.bvid === bvid);
+        if (video) {
+            this.openEditPanel(bvid);
+            return;
+        }
+
+        // 未找到则从服务器获取
+        try {
+            const response = await fetch(`/api/video/${bvid}`, {
+                headers: this.getAuthHeaders()
+            });
+            if (!response.ok) {
+                alert('获取视频数据失败');
+                return;
+            }
+            const result = await response.json();
+            if (result.success) {
+                // 将获取到的视频加入 videos 列表
+                this.videos.push(result.data);
+                this.openEditPanel(bvid);
+            } else {
+                alert('获取视频数据失败: ' + result.error);
+            }
+        } catch (error) {
+            alert('获取视频数据失败: ' + error.message);
+        }
+    }
+
+    async pikaSearch() {
+        const keyword = document.getElementById('pikaKeyword').value;
+        const videoList = document.getElementById('pikaVideoList');
+
+        if (!keyword) {
+            videoList.innerHTML = '<div class="empty-state">请输入关键字搜索</div>';
+            return;
+        }
+
+        videoList.innerHTML = '<div class="loading">搜索中...</div>';
+
+        try {
+            const url = `/api/videos?keyword=${encodeURIComponent(keyword)}&page_size=100`;
+            const response = await fetch(url);
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error);
+            }
+
+            if (result.data.length === 0) {
+                videoList.innerHTML = '<div class="empty-state">未找到相关稿件</div>';
+                return;
+            }
+
+            videoList.innerHTML = result.data.map((video, index) => this.createVideoCard(video, index)).join('');
+        } catch (error) {
+            videoList.innerHTML = `<div class="empty-state">搜索失败: ${error.message}</div>`;
+        }
+    }
+
+    async sendDebugRequest() {
+        const endpoint = document.getElementById('debugEndpoint').value;
+        const paramsStr = document.getElementById('debugParams').value;
+        const output = document.getElementById('debugOutput');
+
+        output.className = 'debug-output';
+        output.textContent = '发送请求中...';
+
+        try {
+            let url = endpoint;
+            let options = { method: 'GET' };
+            const authHeaders = this.getAuthHeaders();
+
+            if (endpoint === '/api/video/BVxxx') {
+                url = `/api/video/BVxxxxxx`;
+            } else if (endpoint === '/api/submit-changes' || endpoint === '/api/calculate-rankings') {
+                options = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...authHeaders
+                    },
+                    body: paramsStr || '{}'
+                };
+            } else if (endpoint === '/api/videos' && paramsStr) {
+                const params = JSON.parse(paramsStr);
+                const query = new URLSearchParams(params).toString();
+                url = `/api/videos?${query}`;
+                if (authHeaders['X-Auth-Key']) {
+                    url += `&auth_key=${encodeURIComponent(authHeaders['X-Auth-Key'])}`;
+                }
+            } else if (authHeaders['X-Auth-Key']) {
+                url += `?auth_key=${encodeURIComponent(authHeaders['X-Auth-Key'])}`;
+            }
+
+            const startTime = performance.now();
+            const response = await fetch(url, options);
+            const endTime = performance.now();
+
+            const result = await response.json();
+            const duration = (endTime - startTime).toFixed(0);
+
+            output.className = 'debug-output success';
+            output.textContent = `[${response.status}] ${duration}ms\n\n${JSON.stringify(result, null, 2)}`;
+        } catch (error) {
+            output.className = 'debug-output error';
+            output.textContent = `请求失败: ${error.message}`;
+        }
+    }
+}
+
+window.app = new CVSEApp();
