@@ -127,7 +127,7 @@ body {
 }
 
 .page {
-    align-items: center;
+    display: none;
 }
 
 .recording-card-header {
@@ -1103,11 +1103,11 @@ body {
         height: 180px;
     }
 
+    .video-list.layout-double {
+        grid-template-columns: 1fr;
+    }
+
     .edit-panel {
         width: 100%;
     }
-}
-
-.video-list.layout-double {
-    grid-template-columns: 1fr;
 }

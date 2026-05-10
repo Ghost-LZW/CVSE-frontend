@@ -1374,6 +1374,9 @@
 
             // 创建预览卡片（含编辑和跳转功能）
             createPreviewCard(e) {
+                const coverUrl = this.normalizeCoverUrl(e.cover);
+                const fallbackCover = this.getCoverFallbackDataUrl();
+
                 return `
                     <div class="ranking-card">
                         <div class="ranking-header">
@@ -1381,8 +1384,9 @@
                             <div class="ranking-score">分数: ${e.totalScore.toFixed(1)}</div>
                         </div>
                         <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
-                            <img src="${e.cover ? '/api/proxy-image?url=' + encodeURIComponent(e.cover) : ''}" style="width: 120px; height: 68px; object-fit: cover; border-radius: 4px; background: var(--gray-200); cursor: pointer;"
-                                onerror="this.style.display='none'"
+                            <img src="${coverUrl || fallbackCover}" style="width: 120px; height: 68px; object-fit: cover; border-radius: 4px; background: var(--gray-200); cursor: pointer;"
+                                crossorigin="anonymous" referrerpolicy="no-referrer" loading="lazy" decoding="async"
+                                onerror="this.onerror=null;this.src='${fallbackCover}'"
                                 onclick="window.open('https://www.bilibili.com/video/${e.bvid}', '_blank')"
                                 title="点击打开B站视频">
                             <div style="flex: 1; min-width: 0;">

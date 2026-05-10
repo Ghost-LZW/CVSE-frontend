@@ -621,3 +621,7 @@ def main():
     print("Starting CVSE server (Enhanced Version)...")
     print(f"Visit: http://{host}:{port}")
     serve(app, host=host, port=port)
+
+
+if __name__ == "__main__":
+    main()
