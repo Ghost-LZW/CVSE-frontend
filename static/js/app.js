@@ -1,3 +1,20 @@
+import {
+    calculateRankings as calculateRankingsRequest,
+    getRankingPreview,
+    getVideo,
+    getVideos,
+    sendDebugRequest as sendDebugRequestApi,
+    submitChanges as submitChangesRequest,
+    validateAuthKey,
+} from './api.js';
+import {
+    formatDuration,
+    getCoverFallbackDataUrl,
+    getEmptyStats,
+    limitDateYear,
+    normalizeCoverUrl,
+} from './utils.js';
+
 class CVSEApp {
     constructor() {
         this.videos = [];
@@ -16,7 +33,7 @@ class CVSEApp {
         this.previewIndex = 1;
         this.totalItems = 0;
         this.totalPages = 0;
-        this.stats = this.getEmptyStats();
+        this.stats = getEmptyStats();
         this.layoutMode = localStorage.getItem('cvse_layout_mode') || 'double';
         this.lastRequestSignature = '';
         this.changesPanelOffset = 0;
@@ -65,8 +82,8 @@ class CVSEApp {
 
         document.getElementById('layoutModeSelect').addEventListener('change', (e) => this.setLayoutMode(e.target.value));
         document.getElementById('pageSizeSelect').addEventListener('change', () => this.searchVideos());
-        document.getElementById('dateFilter').addEventListener('input', (e) => this.limitDateYear(e.target));
-        document.getElementById('dateFilter').addEventListener('change', (e) => this.limitDateYear(e.target));
+        document.getElementById('dateFilter').addEventListener('input', (e) => limitDateYear(e.target));
+        document.getElementById('dateFilter').addEventListener('change', (e) => limitDateYear(e.target));
 
         document.getElementById('calculateBtn').addEventListener('click', () => this.calculateRankings());
         document.getElementById('getPreviewBtn').addEventListener('click', () => this.getPreview());
@@ -184,12 +201,7 @@ class CVSEApp {
         statusEl.textContent = '验证中...';
         statusEl.style.color = 'var(--gray-500)';
         try {
-            const response = await fetch('/api/auth/validate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ auth_key: apiKey })
-            });
-            const result = await response.json();
+            const result = await validateAuthKey(apiKey);
             if (result.success && result.valid) {
                 statusEl.textContent = '✓ API Key 有效';
                 statusEl.style.color = 'var(--success)';
@@ -209,43 +221,6 @@ class CVSEApp {
             document.getElementById('apiKeyInput').value = '';
             document.getElementById('apiKeyStatus').textContent = '已清除';
             document.getElementById('apiKeyStatus').style.color = 'var(--gray-500)';
-        }
-    }
-
-    getAuthHeaders() {
-        const apiKey = localStorage.getItem('cvse_api_key');
-        if (apiKey) {
-            return { 'X-Auth-Key': apiKey };
-        }
-        return {};
-    }
-
-    getAuthQueryParam() {
-        const apiKey = localStorage.getItem('cvse_api_key');
-        if (apiKey) {
-            return `&auth_key=${encodeURIComponent(apiKey)}`;
-        }
-        return '';
-    }
-
-    normalizeCoverUrl(url) {
-        if (!url) return '';
-        if (url.startsWith('//')) return `https:${url}`;
-        if (url.startsWith('http://')) return `https://${url.slice(7)}`;
-        return url;
-    }
-
-    getCoverFallbackDataUrl() {
-        return "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 160 90%22><rect fill=%22%23e2e8f0%22 width=%22160%22 height=%2290%22/><text fill=%22%2394a3b8%22 x=%2280%22 y=%2245%22 text-anchor=%22middle%22>无封面</text></svg>";
-    }
-
-    limitDateYear(input) {
-        if (!input.value) return;
-        const match = input.value.match(/^(\d+)(-\d{2}-\d{2})$/);
-        if (!match) return;
-        const [, year, suffix] = match;
-        if (year.length > 4) {
-            input.value = `${year.slice(0, 4)}${suffix}`;
         }
     }
 
@@ -286,7 +261,7 @@ class CVSEApp {
             this.currentDate = dateFilter;
             this.currentPageSize = pageSize;
             try {
-                const params = new URLSearchParams({
+                const result = await getVideos({
                     page_size: String(pageSize),
                     page: String(this.currentPageIndex),
                     date: dateFilter,
@@ -296,28 +271,11 @@ class CVSEApp {
                     bvid: filters.bvid,
                     avid: filters.avid,
                 });
-                let url = `/api/videos?${params.toString()}`;
-                const authKey = localStorage.getItem('cvse_api_key');
-                if (authKey) {
-                    url += `&auth_key=${encodeURIComponent(authKey)}`;
-                }
-
-                const response = await fetch(url);
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
-                const result = await response.json();
-
-                if (!result.success) {
-                    throw new Error(result.error);
-                }
 
                 this.videos = result.data;
                 this.totalItems = result.total || 0;
                 this.totalPages = this.totalItems > 0 ? Math.ceil(this.totalItems / pageSize) : 0;
-                this.stats = { ...this.getEmptyStats(), ...(result.stats || {}) };
+                this.stats = { ...getEmptyStats(), ...(result.stats || {}) };
                 this.lastRequestSignature = requestSignature;
                 this.selectedVideos.clear();
 
@@ -330,7 +288,7 @@ class CVSEApp {
             } catch (error) {
                 this.totalItems = 0;
                 this.totalPages = 0;
-                this.stats = this.getEmptyStats();
+                this.stats = getEmptyStats();
                 this.updatePagination();
                 videoList.innerHTML = `<div class="empty-state">
                     <div class="empty-state-icon">❌</div>
@@ -417,20 +375,8 @@ class CVSEApp {
         document.getElementById('exclusionCount').textContent = '-';
     }
 
-    getEmptyStats() {
-        return {
-            total: 0,
-            domestic: 0,
-            sv: 0,
-            utau: 0,
-            republish: 0,
-            uncheck: 0,
-            exclusion: 0,
-        };
-    }
-
     updateStats() {
-        const stats = { ...this.getEmptyStats(), ...(this.stats || {}) };
+        const stats = { ...getEmptyStats(), ...(this.stats || {}) };
 
         this.setPaginationInputs(this.currentPageIndex);
         document.getElementById('totalCount').textContent = stats.total || 0;
@@ -529,8 +475,8 @@ class CVSEApp {
         const hasChange = this.changes.has(video.bvid);
         const isSelected = this.selectedVideos.has(video.bvid);
         const changeClass = `${hasChange ? 'edited' : ''} ${isSelected ? 'selected' : ''}`.trim();
-        const coverUrl = this.normalizeCoverUrl(video.cover);
-        const fallbackCover = this.getCoverFallbackDataUrl();
+        const coverUrl = normalizeCoverUrl(video.cover);
+        const fallbackCover = getCoverFallbackDataUrl();
 
         const rankTags = video.ranks.map(r =>
             `<span class="tag tag-rank-${r}">${r === 'domestic' ? '国产' : r === 'sv' ? 'SV' : 'UTAU'}</span>`
@@ -563,7 +509,7 @@ class CVSEApp {
                                 <span class="video-meta-item">
                                     <span class="video-uploader">${video.uploader}</span>
                                 </span>
-                                <span class="video-meta-item">⏱ ${this.formatDuration(video.duration)}</span>
+                                <span class="video-meta-item">⏱ ${formatDuration(video.duration)}</span>
                                 <span class="video-meta-item">📅 ${video.pubdate}</span>
                                 <span class="video-meta-item">${video.avid}</span>
                             </div>
@@ -582,12 +528,6 @@ class CVSEApp {
                 </div>
             </div>
         `;
-    }
-
-    formatDuration(seconds) {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
     }
 
     openEditPanel(bvid) {
@@ -861,16 +801,7 @@ class CVSEApp {
         }));
 
         try {
-            const authHeaders = this.getAuthHeaders();
-            const response = await fetch('/api/submit-changes', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...authHeaders
-                },
-                body: JSON.stringify({ changes })
-            });
-            const result = await response.json();
+            const result = await submitChangesRequest(changes);
 
             if (!result.success) {
                 alert('提交失败: ' + result.error);
@@ -895,7 +826,6 @@ class CVSEApp {
         const index = Number.isNaN(indexInput) ? 1 : Math.max(1, indexInput);
         document.getElementById('previewIndex').value = index;
         const preview = document.getElementById('rankingPreview');
-        const authHeaders = this.getAuthHeaders();
         const totalDuration = 90; // 秒
 
         // 确认对话框
@@ -937,35 +867,7 @@ class CVSEApp {
         preview.innerHTML = '<div class="loading">正在计算排行榜...</div>';
 
         try {
-            const response = await fetch('/api/calculate-rankings', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...authHeaders
-                },
-                body: JSON.stringify({ rank, index, contain_unexamined: true, lock: false })
-            });
-
-            if (!response.ok) {
-                clearInterval(timer);
-                overlay.classList.remove('open');
-                try {
-                    const result = await response.json();
-                    preview.innerHTML = `<div class="empty-state">计算失败: HTTP ${response.status} ${result.error}</div>`;
-                } catch {
-                    preview.innerHTML = `<div class="empty-state">计算失败: HTTP ${response.status} ${response.statusText}</div>`;
-                }
-                return;
-            }
-
-            const result = await response.json();
-
-            if (!result.success) {
-                clearInterval(timer);
-                overlay.classList.remove('open');
-                preview.innerHTML = `<div class="empty-state">计算失败: ${result.error}</div>`;
-                return;
-            }
+            await calculateRankingsRequest({ rank, index, containUnexamined: true, lock: false });
 
             titleEl.textContent = `${rankName} 第${index}期排行榜计算完成，正在获取预览数据...`;
 
@@ -975,25 +877,12 @@ class CVSEApp {
             this.previewPage = 1;
             this.previewPageSize = parseInt(document.getElementById('previewPageSize').value);
 
-            const previewResp = await fetch(`/api/ranking-preview?rank=${rank}&index=${index}&page=1&page_size=${this.previewPageSize}${this.getAuthQueryParam()}`, {
-                headers: authHeaders
+            const previewData = await getRankingPreview({
+                rank,
+                index,
+                page: 1,
+                pageSize: this.previewPageSize,
             });
-
-            if (!previewResp.ok) {
-                clearInterval(timer);
-                overlay.classList.remove('open');
-                preview.innerHTML = `<div class="empty-state">获取预览失败: HTTP ${previewResp.status}</div>`;
-                return;
-            }
-
-            const previewData = await previewResp.json();
-
-            if (!previewData.success) {
-                clearInterval(timer);
-                overlay.classList.remove('open');
-                preview.innerHTML = `<div class="empty-state">获取预览失败: ${previewData.error}</div>`;
-                return;
-            }
 
             // 计算完成，进度条跳到 100% 并关闭
             clearInterval(timer);
@@ -1033,22 +922,12 @@ class CVSEApp {
         document.getElementById('previewPagination').style.display = 'none';
 
         try {
-            const url = `/api/ranking-preview?rank=${rank}&index=${index}&page=1&page_size=${this.previewPageSize}${this.getAuthQueryParam()}`;
-            const response = await fetch(url, {
-                headers: this.getAuthHeaders()
+            const result = await getRankingPreview({
+                rank,
+                index,
+                page: 1,
+                pageSize: this.previewPageSize,
             });
-
-            if (!response.ok) {
-                preview.innerHTML = `<div class="empty-state">获取预览失败: HTTP ${response.status}</div>`;
-                return;
-            }
-
-            const result = await response.json();
-
-            if (!result.success) {
-                preview.innerHTML = `<div class="empty-state">获取预览失败: ${result.error}</div>`;
-                return;
-            }
 
             this.previewData = result.data;
             this.previewTotal = result.data.total || result.data.stat.count;
@@ -1071,16 +950,15 @@ class CVSEApp {
         const rank = this.previewRank;
         const index = this.previewIndex;
 
-        fetch(`/api/ranking-preview?rank=${rank}&index=${index}&page=${this.previewPage}&page_size=${this.previewPageSize}${this.getAuthQueryParam()}`, {
-            headers: this.getAuthHeaders()
-        }).then(r => r.json()).then(result => {
-            if (result.success) {
-                this.previewData = result.data;
-                this.previewTotal = result.data.total || result.data.stat.count;
-                this.renderPreview();
-            } else {
-                preview.innerHTML = `<div class="empty-state">加载失败: ${result.error}</div>`;
-            }
+        getRankingPreview({
+            rank,
+            index,
+            page: this.previewPage,
+            pageSize: this.previewPageSize,
+        }).then(result => {
+            this.previewData = result.data;
+            this.previewTotal = result.data.total || result.data.stat.count;
+            this.renderPreview();
         }).catch(error => {
             preview.innerHTML = `<div class="empty-state">加载失败: ${error.message}</div>`;
         });
@@ -1131,8 +1009,8 @@ class CVSEApp {
 
     // 创建预览卡片（含编辑和跳转功能）
     createPreviewCard(e) {
-        const coverUrl = this.normalizeCoverUrl(e.cover);
-        const fallbackCover = this.getCoverFallbackDataUrl();
+        const coverUrl = normalizeCoverUrl(e.cover);
+        const fallbackCover = getCoverFallbackDataUrl();
 
         return `
             <div class="ranking-card">
@@ -1183,21 +1061,10 @@ class CVSEApp {
 
         // 未找到则从服务器获取
         try {
-            const response = await fetch(`/api/video/${bvid}`, {
-                headers: this.getAuthHeaders()
-            });
-            if (!response.ok) {
-                alert('获取视频数据失败');
-                return;
-            }
-            const result = await response.json();
-            if (result.success) {
-                // 将获取到的视频加入 videos 列表
-                this.videos.push(result.data);
-                this.openEditPanel(bvid);
-            } else {
-                alert('获取视频数据失败: ' + result.error);
-            }
+            const result = await getVideo(bvid);
+            // 将获取到的视频加入 videos 列表
+            this.videos.push(result.data);
+            this.openEditPanel(bvid);
         } catch (error) {
             alert('获取视频数据失败: ' + error.message);
         }
@@ -1215,13 +1082,7 @@ class CVSEApp {
         videoList.innerHTML = '<div class="loading">搜索中...</div>';
 
         try {
-            const url = `/api/videos?keyword=${encodeURIComponent(keyword)}&page_size=100`;
-            const response = await fetch(url);
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.error);
-            }
+            const result = await getVideos({ keyword, page_size: '100' });
 
             if (result.data.length === 0) {
                 videoList.innerHTML = '<div class="empty-state">未找到相关稿件</div>';
@@ -1243,41 +1104,10 @@ class CVSEApp {
         output.textContent = '发送请求中...';
 
         try {
-            let url = endpoint;
-            let options = { method: 'GET' };
-            const authHeaders = this.getAuthHeaders();
-
-            if (endpoint === '/api/video/BVxxx') {
-                url = `/api/video/BVxxxxxx`;
-            } else if (endpoint === '/api/submit-changes' || endpoint === '/api/calculate-rankings') {
-                options = {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...authHeaders
-                    },
-                    body: paramsStr || '{}'
-                };
-            } else if (endpoint === '/api/videos' && paramsStr) {
-                const params = JSON.parse(paramsStr);
-                const query = new URLSearchParams(params).toString();
-                url = `/api/videos?${query}`;
-                if (authHeaders['X-Auth-Key']) {
-                    url += `&auth_key=${encodeURIComponent(authHeaders['X-Auth-Key'])}`;
-                }
-            } else if (authHeaders['X-Auth-Key']) {
-                url += `?auth_key=${encodeURIComponent(authHeaders['X-Auth-Key'])}`;
-            }
-
-            const startTime = performance.now();
-            const response = await fetch(url, options);
-            const endTime = performance.now();
-
-            const result = await response.json();
-            const duration = (endTime - startTime).toFixed(0);
+            const { status, duration, result } = await sendDebugRequestApi(endpoint, paramsStr);
 
             output.className = 'debug-output success';
-            output.textContent = `[${response.status}] ${duration}ms\n\n${JSON.stringify(result, null, 2)}`;
+            output.textContent = `[${status}] ${duration}ms\n\n${JSON.stringify(result, null, 2)}`;
         } catch (error) {
             output.className = 'debug-output error';
             output.textContent = `请求失败: ${error.message}`;

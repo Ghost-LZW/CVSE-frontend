@@ -1,0 +1,54 @@
+export function getAuthHeaders() {
+    const apiKey = localStorage.getItem('cvse_api_key');
+    if (apiKey) {
+        return { 'X-Auth-Key': apiKey };
+    }
+    return {};
+}
+
+export function getAuthQueryParam() {
+    const apiKey = localStorage.getItem('cvse_api_key');
+    if (apiKey) {
+        return `&auth_key=${encodeURIComponent(apiKey)}`;
+    }
+    return '';
+}
+
+export function normalizeCoverUrl(url) {
+    if (!url) return '';
+    if (url.startsWith('//')) return `https:${url}`;
+    if (url.startsWith('http://')) return `https://${url.slice(7)}`;
+    return url;
+}
+
+export function getCoverFallbackDataUrl() {
+    return "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 160 90%22><rect fill=%22%23e2e8f0%22 width=%22160%22 height=%2290%22/><text fill=%22%2394a3b8%22 x=%2280%22 y=%2245%22 text-anchor=%22middle%22>无封面</text></svg>";
+}
+
+export function limitDateYear(input) {
+    if (!input.value) return;
+    const match = input.value.match(/^(\d+)(-\d{2}-\d{2})$/);
+    if (!match) return;
+    const [, year, suffix] = match;
+    if (year.length > 4) {
+        input.value = `${year.slice(0, 4)}${suffix}`;
+    }
+}
+
+export function formatDuration(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+export function getEmptyStats() {
+    return {
+        total: 0,
+        domestic: 0,
+        sv: 0,
+        utau: 0,
+        republish: 0,
+        uncheck: 0,
+        exclusion: 0,
+    };
+}
