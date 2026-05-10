@@ -1517,9 +1517,8 @@
             }
 
             changePage(delta) {
-                this.currentPageIndex += delta;
-                if (this.currentPageIndex < 1) this.currentPageIndex = 1;
-                document.getElementById('currentPage').value = this.currentPageIndex;
+                const targetPage = Math.max(1, this.currentPageIndex + Number(delta || 0));
+                document.getElementById('currentPage').value = targetPage;
                 this.loadVideos();
             }
 
