@@ -7,6 +7,7 @@ dependencies = [
     "flask-cors",
     "flask-limiter",
     "pycapnp",
+    "aiohttp",
     "waitress",
 ]
 requires-python = "==3.13.*"

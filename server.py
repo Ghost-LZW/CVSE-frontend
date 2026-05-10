@@ -9,7 +9,7 @@ Copyright (c) 2026 milkboy, yhtq
 import asyncio
 import os
 from datetime import datetime, timedelta
-from flask import Flask, jsonify, request, Response
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -546,21 +546,3 @@ def main():
     print("Starting CVSE server (Enhanced Version)...")
     print(f"Visit: http://{host}:{port}")
     serve(app, host=host, port=port)
-
-
-@app.route("/api/proxy-image")
-def proxy_image():
-    """Proxy BiliBili images to avoid CORS issues"""
-    import requests
-    url = request.args.get("url")
-    if not url:
-        return "Missing url parameter", 400
-    
-    try:
-        resp = requests.get(url, headers={
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-            "Referer": "https://www.bilibili.com"
-        }, timeout=10)
-        return Response(resp.content, mimetype=resp.headers.get("Content-Type", "image/jpeg"))
-    except Exception as e:
-        return str(e), 500

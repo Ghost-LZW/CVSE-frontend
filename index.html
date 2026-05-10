@@ -1357,6 +1357,17 @@
                 return '';
             }
 
+            normalizeCoverUrl(url) {
+                if (!url) return '';
+                if (url.startsWith('//')) return `https:${url}`;
+                if (url.startsWith('http://')) return `https://${url.slice(7)}`;
+                return url;
+            }
+
+            getCoverFallbackDataUrl() {
+                return "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 160 90%22><rect fill=%22%23e2e8f0%22 width=%22160%22 height=%2290%22/><text fill=%22%2394a3b8%22 x=%2280%22 y=%2245%22 text-anchor=%22middle%22>无封面</text></svg>";
+            }
+
             async refreshVideos() {
                 this.currentDate = '';
                 await this.loadVideos();
@@ -1515,7 +1526,8 @@
             createVideoCard(video, index) {
                 const hasChange = this.changes.has(video.bvid);
                 const changeClass = hasChange ? 'edited' : '';
-                const coverUrl = video.cover ? `/api/proxy-image?url=${encodeURIComponent(video.cover)}` : `https://player.bilibili.com/player.html?bvid=${video.bvid}&page=1`;
+                const coverUrl = this.normalizeCoverUrl(video.cover);
+                const fallbackCover = this.getCoverFallbackDataUrl();
 
                 const rankTags = video.ranks.map(r => 
                     `<span class="tag tag-rank-${r}">${r === 'domestic' ? '国产' : r === 'sv' ? 'SV' : 'UTAU'}</span>`
@@ -1537,8 +1549,8 @@
                 return `
                     <div class="video-item ${changeClass}" data-bvid="${video.bvid}">
                         <div class="video-content">
-                            <img class="video-cover" src="${coverUrl}" alt="封面" 
-                                onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 160 90%22><rect fill=%22%23e2e8f0%22 width=%22160%22 height=%2290%22/><text fill=%22%2394a3b8%22 x=%2280%22 y=%2245%22 text-anchor=%22middle%22>无封面</text></svg>'"
+                            <img class="video-cover" src="${coverUrl || fallbackCover}" alt="封面" crossorigin="anonymous" referrerpolicy="no-referrer" loading="lazy" decoding="async"
+                                onerror="this.onerror=null;this.src='${fallbackCover}'"
                                 onclick="window.open('https://www.bilibili.com/video/${video.bvid}', '_blank')">
                             <div class="video-info">
                                 <div class="video-title">${video.title}</div>
@@ -1903,7 +1915,7 @@
                                         <div class="ranking-score">评分: ${e.totalScore.toFixed(1)}</div>
                                     </div>
                                     <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
-                                        <img src="${e.cover ? '/api/proxy-image?url=' + encodeURIComponent(e.cover) : ''}" style="width: 120px; height: 68px; object-fit: cover; border-radius: 4px; background: var(--gray-200);" 
+                                        <img src="${this.normalizeCoverUrl(e.cover) || this.getCoverFallbackDataUrl()}" crossorigin="anonymous" referrerpolicy="no-referrer" loading="lazy" decoding="async" style="width: 120px; height: 68px; object-fit: cover; border-radius: 4px; background: var(--gray-200);" 
                                             onerror="this.style.display='none'"
                                             onclick="window.open('https://www.bilibili.com/video/${e.bvid}', '_blank')"
                                             title="点击打开B站视频">
