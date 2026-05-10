@@ -8,12 +8,15 @@ import {
     validateAuthKey,
 } from './api.js';
 import {
-    formatDuration,
-    getCoverFallbackDataUrl,
     getEmptyStats,
     limitDateYear,
-    normalizeCoverUrl,
 } from './utils.js';
+import {
+    createChangeItems,
+    createEditPanel,
+    createPreviewContent,
+    createVideoCard,
+} from './renderers.js';
 
 class CVSEApp {
     constructor() {
@@ -399,7 +402,10 @@ class CVSEApp {
             return;
         }
 
-        videoList.innerHTML = videos.map((video, index) => this.createVideoCard(video, index)).join('');
+        videoList.innerHTML = videos.map(video => createVideoCard(video, {
+            hasChange: this.changes.has(video.bvid),
+            isSelected: this.selectedVideos.has(video.bvid),
+        })).join('');
         this.updateSelectionBar(videos);
         this.applyLayoutMode();
     }
@@ -471,65 +477,6 @@ class CVSEApp {
         this.loadVideos({ force: true });
     }
 
-    createVideoCard(video, index) {
-        const hasChange = this.changes.has(video.bvid);
-        const isSelected = this.selectedVideos.has(video.bvid);
-        const changeClass = `${hasChange ? 'edited' : ''} ${isSelected ? 'selected' : ''}`.trim();
-        const coverUrl = normalizeCoverUrl(video.cover);
-        const fallbackCover = getCoverFallbackDataUrl();
-
-        const rankTags = video.ranks.map(r =>
-            `<span class="tag tag-rank-${r}">${r === 'domestic' ? '国产' : r === 'sv' ? 'SV' : 'UTAU'}</span>`
-        ).join('');
-
-        const exclusionTag = video.is_examined && video.ranks.length === 0
-            ? '<span class="tag tag-exclusion">排除</span>'
-            : '';
-
-
-        const statusTag = video.is_examined
-            ? '<span class="tag tag-examined">已收录</span>'
-            : '<span class="tag tag-uncheck">待收录</span>';
-
-        const republishTag = video.is_republish
-            ? '<span class="tag tag-republish">转载</span>'
-            : '';
-
-        return `
-            <div class="video-item ${changeClass}" data-bvid="${video.bvid}">
-                <div class="video-select">
-                    <input class="video-checkbox" type="checkbox" ${isSelected ? 'checked' : ''} onchange="app.toggleVideoSelection('${video.bvid}', this.checked)">
-                    <div class="video-content">
-                        <img class="video-cover" src="${coverUrl || fallbackCover}" alt="封面" crossorigin="anonymous" referrerpolicy="no-referrer" loading="lazy" decoding="async"
-                            onerror="this.onerror=null;this.src='${fallbackCover}'"
-                            onclick="window.open('https://www.bilibili.com/video/${video.bvid}', '_blank')">
-                        <div class="video-info">
-                            <div class="video-title">${video.title}</div>
-                            <div class="video-meta">
-                                <span class="video-meta-item">
-                                    <span class="video-uploader">${video.uploader}</span>
-                                </span>
-                                <span class="video-meta-item">⏱ ${formatDuration(video.duration)}</span>
-                                <span class="video-meta-item">📅 ${video.pubdate}</span>
-                                <span class="video-meta-item">${video.avid}</span>
-                            </div>
-                            <div class="video-tags">
-                                ${rankTags}
-                                ${statusTag}
-                                ${republishTag}
-                                ${exclusionTag}
-                            </div>
-                            <div class="video-actions">
-                                <button class="btn btn-primary btn-sm" onclick="app.openEditPanel('${video.bvid}')">✏️ 编辑</button>
-                                <button class="btn btn-secondary btn-sm" onclick="window.open('https://www.bilibili.com/video/${video.bvid}', '_blank')">🔗 跳转</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
     openEditPanel(bvid) {
         const video = this.videos.find(v => v.bvid === bvid);
         if (!video) return;
@@ -539,69 +486,7 @@ class CVSEApp {
         const panel = document.createElement('div');
         panel.className = 'edit-panel open';
         panel.id = 'editPanel';
-        panel.innerHTML = `
-            <div class="edit-panel-header">
-                <div class="edit-panel-title">编辑: ${video.bvid}</div>
-                <button class="edit-panel-close" onclick="app.closeEditPanel()">&times;</button>
-            </div>
-            <div class="edit-panel-body">
-                <div class="form-group">
-                    <label class="form-label">标题</label>
-                    <input class="input" value="${change.title}" readonly style="width: 100%;">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">UP主</label>
-                    <input class="input" value="${change.uploader}" readonly style="width: 100%;">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">简介</label>
-                    <textarea class="input" readonly style="width: 100%; height: 80px; resize: vertical;">${change.desc || ''}</textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">收录期刊</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label" id="rank-domestic">
-                            <input type="checkbox" ${change.ranks.includes('domestic') ? 'checked' : ''} onchange="app.toggleRank('domestic')">
-                            国产类
-                        </label>
-                        <label class="checkbox-label" id="rank-sv">
-                            <input type="checkbox" ${change.ranks.includes('sv') ? 'checked' : ''} onchange="app.toggleRank('sv')">
-                            SV类
-                        </label>
-                        <label class="checkbox-label" id="rank-utau">
-                            <input type="checkbox" ${change.ranks.includes('utau') ? 'checked' : ''} onchange="app.toggleRank('utau')">
-                            UTAU类
-                        </label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">搬运标记</label>
-                    <div class="form-row">
-                        <label class="checkbox-label" id="republish-label">
-                            <input type="checkbox" ${change.is_republish ? 'checked' : ''} id="isRepublish" onchange="app.updateRepublish()">
-                            转载
-                        </label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Staff信息</label>
-                    <input class="input" id="staffInfo" value="${change.staff_info || ''}" style="width: 100%;">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">收录状态</label>
-                    <div class="form-row">
-                        <label class="checkbox-label">
-                            <input type="checkbox" ${change.is_examined ? 'checked' : ''} id="isExamined" onchange="app.updateExamined()">
-                            已完成收录
-                        </label>
-                    </div>
-                </div>
-            </div>
-            <div class="edit-panel-footer">
-                <button class="btn btn-secondary" onclick="app.closeEditPanel()">取消</button>
-                <button class="btn btn-primary" onclick="app.saveChange('${bvid}')">保存到本地</button>
-            </div>
-        `;
+        panel.innerHTML = createEditPanel(change, bvid);
 
         document.body.appendChild(panel);
         this.currentEditingBvid = bvid;
@@ -703,23 +588,7 @@ class CVSEApp {
             panel.classList.remove('open');
         }
 
-        list.innerHTML = Array.from(this.changes.entries()).map(([bvid, data]) => {
-            const changesDesc = [];
-            if (data.ranks && data.ranks.length) changesDesc.push(`期刊: ${data.ranks.join(', ')}`);
-            if ('is_examined' in data) changesDesc.push(data.is_examined ? '已收录' : '未收录');
-            if ('is_republish' in data) changesDesc.push(data.is_republish ? '转载' : '自制');
-            if (data.staff_info) changesDesc.push(`Staff: ${data.staff_info}`);
-
-            return `
-                <div class="change-item">
-                    <div class="change-item-info">
-                        <div class="change-item-title">${data.title || bvid}</div>
-                        <div class="change-item-desc">${changesDesc.join(' | ')}</div>
-                    </div>
-                    <button class="change-item-remove" onclick="app.removeChange('${bvid}')">&times;</button>
-                </div>
-            `;
-        }).join('');
+        list.innerHTML = createChangeItems(Array.from(this.changes.entries()));
 
         this.syncChangesPanelOffset();
     }
@@ -970,33 +839,21 @@ class CVSEApp {
         const data = this.previewData;
 
         if (!data || !data.entries || data.entries.length === 0) {
-            preview.innerHTML = `
-                <div class="ranking-card">
-                    <div class="ranking-header">
-                        <div class="ranking-rank">⚠️</div>
-                    </div>
-                    <div>${this.previewRank.toUpperCase()} 第${this.previewIndex}期排行榜暂无视频数据</div>
-                </div>
-            `;
+            preview.innerHTML = createPreviewContent({
+                data,
+                previewRank: this.previewRank,
+                previewIndex: this.previewIndex,
+            });
             document.getElementById('previewPagination').style.display = 'none';
             return;
         }
 
-        const stat = data.stat;
-        const entries = data.entries;
         preview.style.marginTop = '1rem';
-        preview.innerHTML = `
-            <div class="ranking-card">
-                <div class="ranking-header">
-                    <div class="ranking-rank">📊</div>
-                </div>
-                <div>${this.previewRank.toUpperCase()} 第${this.previewIndex}期排行榜</div>
-                <div style="margin-top: 0.5rem; color: var(--gray-500); font-size: 0.875rem;">
-                    视频总数: ${stat.count} | 总播放: ${stat.totalView.toLocaleString()} | 总点赞: ${stat.totalLike.toLocaleString()} | 新投稿: ${stat.totalNew}
-                </div>
-            </div>
-            ${entries.map(e => this.createPreviewCard(e)).join('')}
-        `;
+        preview.innerHTML = createPreviewContent({
+            data,
+            previewRank: this.previewRank,
+            previewIndex: this.previewIndex,
+        });
 
         // 更新分页
         const totalPages = Math.ceil(this.previewTotal / this.previewPageSize) || 1;
@@ -1005,49 +862,6 @@ class CVSEApp {
         document.getElementById('previewPageInfo').textContent = `第 ${this.previewPage} 页 / 共 ${totalPages} 页（共 ${this.previewTotal} 项）`;
         document.getElementById('previewPrevPageBtn').disabled = this.previewPage <= 1;
         document.getElementById('previewNextPageBtn').disabled = this.previewPage >= totalPages;
-    }
-
-    // 创建预览卡片（含编辑和跳转功能）
-    createPreviewCard(e) {
-        const coverUrl = normalizeCoverUrl(e.cover);
-        const fallbackCover = getCoverFallbackDataUrl();
-
-        return `
-            <div class="ranking-card">
-                <div class="ranking-header">
-                    <div class="ranking-rank">#${e.rank}</div>
-                    <div class="ranking-score">分数: ${e.totalScore.toFixed(1)}</div>
-                </div>
-                <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
-                    <img src="${coverUrl || fallbackCover}" style="width: 120px; height: 68px; object-fit: cover; border-radius: 4px; background: var(--gray-200); cursor: pointer;"
-                        crossorigin="anonymous" referrerpolicy="no-referrer" loading="lazy" decoding="async"
-                        onerror="this.onerror=null;this.src='${fallbackCover}'"
-                        onclick="window.open('https://www.bilibili.com/video/${e.bvid}', '_blank')"
-                        title="点击打开B站视频">
-                    <div style="flex: 1; min-width: 0;">
-                        <div style="font-weight: 600; margin-bottom: 0.25rem; cursor: pointer; color: var(--primary);"
-                            onclick="window.open('https://www.bilibili.com/video/${e.bvid}', '_blank')">
-                            ${e.title || e.bvid}
-                        </div>
-                        <div style="font-size: 0.8125rem; color: var(--gray-500); margin-bottom: 0.5rem;">
-                            UP主: ${e.uploader || '未知'}
-                        </div>
-                        <div style="display: flex; gap: 1rem; font-size: 0.8125rem; color: var(--gray-600); flex-wrap: wrap;">
-                            <span>👁 ${(e.view || 0).toLocaleString()}</span>
-                            <span>❤️ ${(e.like || 0).toLocaleString()}</span>
-                            <span>🪙 ${(e.coin || 0).toLocaleString()}</span>
-                            <span>⭐ ${(e.favorite || 0).toLocaleString()}</span>
-                            <span>📤 ${(e.share || 0).toLocaleString()}</span>
-                        </div>
-                        ${e.isNew ? '<span class="tag tag-rank-utau" style="margin-top: 0.5rem; display: inline-block;">新上榜</span>' : ''}
-                    </div>
-                </div>
-                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--gray-200);">
-                    <button class="btn btn-primary btn-sm" onclick="app.openEditPanelByBvid('${e.bvid}')">✏️ 编辑</button>
-                    <button class="btn btn-secondary btn-sm" onclick="window.open('https://www.bilibili.com/video/${e.bvid}', '_blank')">🔗 跳转</button>
-                </div>
-            </div>
-        `;
     }
 
     // 通过 bvid 打开编辑面板（用于预览页面的编辑功能）
@@ -1089,7 +903,10 @@ class CVSEApp {
                 return;
             }
 
-            videoList.innerHTML = result.data.map((video, index) => this.createVideoCard(video, index)).join('');
+            videoList.innerHTML = result.data.map(video => createVideoCard(video, {
+                hasChange: this.changes.has(video.bvid),
+                isSelected: this.selectedVideos.has(video.bvid),
+            })).join('');
         } catch (error) {
             videoList.innerHTML = `<div class="empty-state">搜索失败: ${error.message}</div>`;
         }
