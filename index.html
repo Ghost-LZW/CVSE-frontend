@@ -119,7 +119,8 @@
         .main-container {
             max-width: 1600px;
             margin: 0 auto;
-            padding: 1.5rem;
+            padding: 1.5rem 1.5rem calc(1.5rem + var(--changes-panel-offset, 0px));
+            transition: padding-bottom 0.3s ease;
         }
 
         .page {
@@ -1183,6 +1184,9 @@
                 this.currentDate = new Date().toISOString().slice(0, 10);
                 this.currentPageSize = 50;
                 this.currentPageIndex = 1;
+                this.changesPanelOffset = 0;
+                this.changesPanelObserver = null;
+                this.changesPanelScrollTimer = null;
                 this.init();
             }
 
@@ -1239,6 +1243,14 @@
                 document.getElementById('prevPageBtn').addEventListener('click', () => this.changePage(-1));
                 document.getElementById('nextPageBtn').addEventListener('click', () => this.changePage(1));
                 document.getElementById('goPageBtn').addEventListener('click', () => this.changePage(document.getElementById('currentPage').value - this.currentPageIndex));
+
+                const panel = document.getElementById('changesPanel');
+                if ('ResizeObserver' in window) {
+                    this.changesPanelObserver = new ResizeObserver(() => this.syncChangesPanelOffset());
+                    this.changesPanelObserver.observe(panel);
+                }
+                window.addEventListener('resize', () => this.syncChangesPanelOffset());
+                this.syncChangesPanelOffset();
             }
 
             setupDebugPanel() {
@@ -1739,6 +1751,25 @@
                         </div>
                     `;
                 }).join('');
+
+                this.syncChangesPanelOffset();
+            }
+
+            syncChangesPanelOffset() {
+                const panel = document.getElementById('changesPanel');
+                const offset = panel.classList.contains('open') ? panel.offsetHeight : 0;
+                const previousOffset = this.changesPanelOffset;
+                const distanceFromBottom = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+
+                document.documentElement.style.setProperty('--changes-panel-offset', `${offset}px`);
+                this.changesPanelOffset = offset;
+
+                if (offset > previousOffset && distanceFromBottom <= previousOffset + 32) {
+                    clearTimeout(this.changesPanelScrollTimer);
+                    this.changesPanelScrollTimer = setTimeout(() => {
+                        window.scrollTo(0, document.documentElement.scrollHeight);
+                    }, 320);
+                }
             }
 
             removeChange(bvid) {
