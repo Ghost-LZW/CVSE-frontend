@@ -395,8 +395,6 @@ def calculate_rankings():
 
 async def get_ranking_preview_async(rank_name: str, index: int, contain_unexamined: bool, auth_key: str | None = None):
     """Get ranking preview data"""
-    import aiohttp
-    
     client = await CVSE_Client.create(CVSE_HOST, CVSE_PORT, auth_key)
     
     try:
@@ -430,29 +428,11 @@ async def get_ranking_preview_async(rank_name: str, index: int, contain_unexamin
     indices = await client.getAllRankingInfo(Rank[rank_name.upper()], index, contain_unexamined, 1, min(stat.count + 1, 51))
     
     entries = await client.lookupRankingInfo(Rank[rank_name.upper()], index, contain_unexamined, list(indices))
-    
-    bvids = [e.bvid for e in entries]
-    
-    video_info_map = {}
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://www.bilibili.com"
+
+    meta_entries = await client.lookupMetaInfo(list(indices))
+    video_info_map = {
+        video["bvid"]: video for video in map(format_video_entry, meta_entries)
     }
-    async with aiohttp.ClientSession(headers=headers) as session:
-        for bvid in bvids[:50]:
-            try:
-                async with session.get(f"https://api.bilibili.com/x/web-interface/view?bvid={bvid}", timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        if data.get("code") == 0:
-                            video_info_map[bvid] = {
-                                "title": data["data"].get("title", ""),
-                                "uploader": data["data"].get("owner", {}).get("name", ""),
-                                "cover": data["data"].get("pic", ""),
-                                "desc": data["data"].get("desc", ""),
-                            }
-            except Exception:
-                pass
     
     formatted_entries = []
     for entry in entries:
@@ -464,6 +444,7 @@ async def get_ranking_preview_async(rank_name: str, index: int, contain_unexamin
             "title": video_info.get("title", ""),
             "uploader": video_info.get("uploader", ""),
             "cover": video_info.get("cover", ""),
+            "is_republish": video_info.get("is_republish", False),
             "view": entry.view,
             "like": entry.like,
             "coin": entry.coin,

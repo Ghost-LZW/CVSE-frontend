@@ -1966,7 +1966,12 @@
                                         <span>⭐ ${e.favorite.toLocaleString()}</span>
                                         <span>📤 ${e.share.toLocaleString()}</span>
                                     </div>
-                                    ${e.isNew ? '<span class="tag tag-rank-utau" style="margin-top: 0.5rem;">新上榜</span>' : ''}
+                                    ${(e.isNew || e.is_republish) ? `
+                                        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                                            ${e.isNew ? '<span class="tag tag-rank-utau">新上榜</span>' : ''}
+                                            ${e.is_republish ? '<span class="tag tag-republish">转载</span>' : ''}
+                                        </div>
+                                    ` : ''}
                                 </div>
                             `).join('')}
                         </div>
