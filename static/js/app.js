@@ -87,6 +87,11 @@ class CVSEApp {
         document.getElementById('pageSizeSelect').addEventListener('change', () => this.searchVideos());
         document.getElementById('dateFilter').addEventListener('input', (e) => limitDateYear(e.target));
         document.getElementById('dateFilter').addEventListener('change', (e) => limitDateYear(e.target));
+        document.getElementById('dateFilter').addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            limitDateYear(e.target);
+            this.searchVideos();
+        });
 
         document.getElementById('calculateBtn').addEventListener('click', () => this.calculateRankings());
         document.getElementById('getPreviewBtn').addEventListener('click', () => this.getPreview());
@@ -419,6 +424,7 @@ class CVSEApp {
 
     updateSelectionBar(videos = this.videos) {
         const selectionCount = this.selectedVideos.size;
+        document.getElementById('selectionBar').classList.toggle('has-selection', selectionCount > 0);
         document.getElementById('selectionSummary').textContent = `已选择 ${selectionCount} 项`;
         document.getElementById('selectVisibleBtn').disabled = videos.length === 0;
         document.getElementById('clearSelectionBtn').disabled = selectionCount === 0;

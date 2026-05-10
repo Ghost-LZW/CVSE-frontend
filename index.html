@@ -26,37 +26,6 @@
 
     <main class="main-container">
         <div id="recording-page" class="page active">
-            <div class="stats-grid" id="statsGrid">
-                <div class="stat-card total">
-                    <div class="stat-number" id="totalCount">-</div>
-                    <div class="stat-label">视频总数</div>
-                </div>
-                <div class="stat-card domestic">
-                    <div class="stat-number" id="domesticCount">-</div>
-                    <div class="stat-label">国产类</div>
-                </div>
-                <div class="stat-card sv">
-                    <div class="stat-number" id="svCount">-</div>
-                    <div class="stat-label">SV类</div>
-                </div>
-                <div class="stat-card utau">
-                    <div class="stat-number" id="utauCount">-</div>
-                    <div class="stat-label">UTAU类</div>
-                </div>
-                <div class="stat-card republish">
-                    <div class="stat-number" id="republishCount">-</div>
-                    <div class="stat-label">转载</div>
-                </div>
-                <div class="stat-card uncheck">
-                    <div class="stat-number" id="uncheckCount">-</div>
-                    <div class="stat-label">待收录</div>
-                </div>
-                <div class="stat-card exclusion">
-                    <div class="stat-number" id="exclusionCount">-</div>
-                    <div class="stat-label">排除</div>
-                </div>
-            </div>
-
             <div class="card">
                 <div class="card-header recording-card-header">
                     <div class="recording-header-row">
@@ -65,61 +34,95 @@
                             <a href="https://cvse.pingcode.com/wiki/spaces/Z/pages/QigBLflM" target="_blank" class="manual-link">📖 收录手册</a>
                         </div>
                     </div>
-                    <div class="filter-bar" style="margin-bottom: 0; padding: 0; background: none;">
-                        <div class="filter-group">
-                            <span class="filter-label">日期:</span>
-                            <input type="date" class="input" id="dateFilter" min="0001-01-01" max="9999-12-31" style="width: 160px;">
+                    <div class="filter-panel">
+                        <div class="stats-grid" id="statsGrid">
+                            <div class="stat-card total">
+                                <div class="stat-number" id="totalCount">-</div>
+                                <div class="stat-label">视频总数</div>
+                            </div>
+                            <div class="stat-card domestic">
+                                <div class="stat-number" id="domesticCount">-</div>
+                                <div class="stat-label">国产类</div>
+                            </div>
+                            <div class="stat-card sv">
+                                <div class="stat-number" id="svCount">-</div>
+                                <div class="stat-label">SV类</div>
+                            </div>
+                            <div class="stat-card utau">
+                                <div class="stat-number" id="utauCount">-</div>
+                                <div class="stat-label">UTAU类</div>
+                            </div>
+                            <div class="stat-card republish">
+                                <div class="stat-number" id="republishCount">-</div>
+                                <div class="stat-label">转载</div>
+                            </div>
+                            <div class="stat-card uncheck">
+                                <div class="stat-number" id="uncheckCount">-</div>
+                                <div class="stat-label">待收录</div>
+                            </div>
+                            <div class="stat-card exclusion">
+                                <div class="stat-number" id="exclusionCount">-</div>
+                                <div class="stat-label">排除</div>
+                            </div>
                         </div>
-                        <div class="filter-group">
-                            <span class="filter-label">关键字:</span>
-                            <input type="text" class="input" id="searchKeyword" placeholder="标题/UP主/Tag/简介" style="width: 200px;">
+                        <div class="filter-bar">
+                            <div class="filter-group">
+                                <span class="filter-label">日期:</span>
+                                <input type="date" class="input" id="dateFilter" min="0001-01-01" max="9999-12-31" style="width: 160px;">
+                            </div>
+                            <div class="filter-group filter-group-wide">
+                                <span class="filter-label">关键字:</span>
+                                <input type="text" class="input" id="searchKeyword" placeholder="标题/UP主/Tag/简介" style="width: 200px;">
+                            </div>
+                            <div class="filter-group">
+                                <span class="filter-label">期刊:</span>
+                                <select class="select" id="rankFilter">
+                                    <option value="all">全部</option>
+                                    <option value="domestic">国产类</option>
+                                    <option value="sv">SV类</option>
+                                    <option value="utau">UTAU类</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <span class="filter-label">状态:</span>
+                                <select class="select" id="examinedFilter">
+                                    <option value="">全部</option>
+                                    <option value="true">已收录</option>
+                                    <option value="false">未收录</option>
+                                    <option value="exclusion">排除</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <span class="filter-label">BV号:</span>
+                                <input type="text" class="input" id="bvidFilter" placeholder="BV..." style="width: 130px;">
+                            </div>
+                            <div class="filter-group">
+                                <span class="filter-label">AV号:</span>
+                                <input type="text" class="input" id="avidFilter" placeholder="av..." style="width: 130px;">
+                            </div>
+                            <div class="filter-group">
+                                <span class="filter-label">每页数量</span>
+                                <select class="select" id="pageSizeSelect">
+                                    <option value="10">10</option>
+                                    <option value="20">20</option>
+                                    <option value="50" selected>50</option>
+                                    <option value="100">100</option>
+                                    <option value="200">200</option>
+                                    <option value="500">500</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <span class="filter-label">布局:</span>
+                                <select class="select" id="layoutModeSelect">
+                                    <option value="double">双列</option>
+                                    <option value="single">单列</option>
+                                </select>
+                            </div>
+                            <div class="filter-actions">
+                                <button class="btn btn-primary" id="searchBtn">🔍 搜索</button>
+                                <button class="btn btn-secondary" id="refreshBtn">🔄 刷新</button>
+                            </div>
                         </div>
-                        <div class="filter-group">
-                            <span class="filter-label">期刊:</span>
-                            <select class="select" id="rankFilter">
-                                <option value="all">全部</option>
-                                <option value="domestic">国产类</option>
-                                <option value="sv">SV类</option>
-                                <option value="utau">UTAU类</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <span class="filter-label">状态:</span>
-                            <select class="select" id="examinedFilter">
-                                <option value="">全部</option>
-                                <option value="true">已收录</option>
-                                <option value="false">未收录</option>
-                                <option value="exclusion">排除</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <span class="filter-label">BV号:</span>
-                            <input type="text" class="input" id="bvidFilter" placeholder="BV..." style="width: 130px;">
-                        </div>
-                        <div class="filter-group">
-                            <span class="filter-label">AV号:</span>
-                            <input type="text" class="input" id="avidFilter" placeholder="av..." style="width: 130px;">
-                        </div>
-                        <div class="filter-group">
-                            <span class="filter-label">每页数量</span>
-                            <select class="select" id="pageSizeSelect">
-                                <option value="10">10</option>
-                                <option value="20">20</option>
-                                <option value="50" selected>50</option>
-                                <option value="100">100</option>
-                                <option value="200">200</option>
-                                <option value="500">500</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <span class="filter-label">布局:</span>
-                            <select class="select" id="layoutModeSelect">
-                                <option value="double">双列</option>
-                                <option value="single">单列</option>
-                            </select>
-                        </div>
-                        <button class="btn btn-primary" id="searchBtn">🔍 搜索</button>
-                        <button class="btn btn-secondary" id="refreshBtn">🔄 刷新</button>
                     </div>
                 </div>
                 <div class="card-page" id="pagination" style="justify-content: center; padding: 1rem;">
