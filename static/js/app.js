@@ -8,6 +8,7 @@ import {
     validateAuthKey,
 } from './api.js';
 import {
+    formatLocalDateInput,
     getEmptyStats,
     limitDateYear,
 } from './utils.js';
@@ -25,7 +26,7 @@ class CVSEApp {
         this.changes = new Map();
         this.selectedVideos = new Set();
         this.currentPage = 'recording';
-        this.currentDate = new Date().toISOString().slice(0, 10);
+        this.currentDate = formatLocalDateInput();
         this.currentPageSize = 50;
         this.currentPageIndex = 1;
         this.previewData = null;
@@ -51,6 +52,7 @@ class CVSEApp {
         this.setupChangesPanel();
         this.setupDebugPanel();
         this.setupSettingsModal();
+        this.setupUnsyncedChangesGuard();
         this.loadApiKey();
         document.getElementById('dateFilter').value = this.currentDate;
         document.getElementById('currentPage').value = this.currentPageIndex;
@@ -167,6 +169,15 @@ class CVSEApp {
         document.getElementById('settingsModalSave').addEventListener('click', () => this.saveApiKey());
         document.getElementById('validateApiKeyBtn').addEventListener('click', () => this.validateApiKey());
         document.getElementById('clearApiKeyBtn').addEventListener('click', () => this.clearApiKey());
+    }
+
+    setupUnsyncedChangesGuard() {
+        window.addEventListener('beforeunload', (event) => {
+            if (this.changes.size === 0) return;
+
+            event.preventDefault();
+            event.returnValue = '';
+        });
     }
 
     loadApiKey() {
