@@ -7,23 +7,28 @@ Copyright (c) 2026 milkboy, yhtq
 """
 
 import asyncio
+import logging
 import os
-from datetime import datetime, timedelta
-from flask import Flask, jsonify, request, Response
+from datetime import date, datetime, timedelta
+
+import aiohttp
+import capnp
+import requests
+from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from waitress import serve
-import capnp
+
 from rpc_tools.api_client import (
     CVSE_Client,
-    ModifyEntry,
-    RPCTime,
-    Rank,
-    capnp_to_Rank,
-    ModifyEntry_to_capnp,
     Index_to_capnp,
+    ModifyEntry,
+    ModifyEntry_to_capnp,
+    Rank,
+    RPCTime,
     bv_to_index,
+    capnp_to_Rank,
 )
 
 app = Flask(__name__)
@@ -42,7 +47,7 @@ CVSE_PORT = "8663"
 def format_video_entry(entry):
     """Format video data for frontend"""
     "这里的逻辑一定要重写"
-    
+
     def Rank2str(rank: Rank):
         match rank:
             case Rank.DOMESTIC:
@@ -53,6 +58,7 @@ def format_video_entry(entry):
                 return "utau"
             case _:
                 return "unknown"
+
     ranks = list(map(capnp_to_Rank, entry.ranks))
     ranks = list(map(Rank2str, ranks))
     pub_time = datetime.fromtimestamp(
@@ -79,18 +85,19 @@ def format_video_entry(entry):
 
 
 async def get_videos_async(
-        keyword: str | None, 
-        rank_filter: str | None, 
-        examined: str, 
-        bvid: str | None, 
-        avid: str | None, 
-        page: int, 
-        page_size: int, 
-        date_str: str | None = None,
-        auth_key: str | None = None):
+    keyword: str | None,
+    rank_filter: str | None,
+    examined: str,
+    bvid: str | None,
+    avid: str | None,
+    page: int,
+    page_size: int,
+    date_str: str | None = None,
+    auth_key: str | None = None,
+):
     """Get videos from CVSE server"""
     now = datetime.now()
-    
+
     if date_str:
         selected_date = datetime.strptime(date_str, "%Y-%m-%d")
         start_week = selected_date.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -102,7 +109,7 @@ async def get_videos_async(
 
     client = await CVSE_Client.create(CVSE_HOST, CVSE_PORT, auth_key)
 
-    get_unexamined = examined == "unexamined" or examined == ""
+    get_unexamined = examined in {"unexamined", "", "false", "no"}
     get_unincluded = True
 
     indices = await client.getAll(
@@ -116,6 +123,15 @@ async def get_videos_async(
         return {
             "data": [],
             "total": 0,
+            "stats": {
+                "total": 0,
+                "domestic": 0,
+                "sv": 0,
+                "utau": 0,
+                "republish": 0,
+                "uncheck": 0,
+                "exclusion": 0,
+            },
             "date_range": {
                 "date": start_week.strftime("%Y年%m月%d日"),
             },
@@ -127,18 +143,21 @@ async def get_videos_async(
     filtered = formatted_videos
 
     if keyword:
+        normalized_keyword = keyword.lower()
         filtered = [
             v
             for v in filtered
-            if keyword.lower() in v["title"].lower()
-            or keyword.lower() in v["uploader"].lower()
+            if normalized_keyword in v["title"].lower()
+            or normalized_keyword in v["uploader"].lower()
+            or normalized_keyword in v["desc"].lower()
+            or any(normalized_keyword in tag.lower() for tag in v["tags"])
         ]
 
     if bvid:
         filtered = [v for v in filtered if bvid.lower() in v["bvid"].lower()]
 
     if avid:
-        filtered = [v for v in filtered if avid in v["avid"]]
+        filtered = [v for v in filtered if avid.lower() in v["avid"].lower()]
 
     if rank_filter != "all":
         if rank_filter == "unrecorded":
@@ -146,22 +165,26 @@ async def get_videos_async(
         else:
             filtered = [v for v in filtered if rank_filter in v["ranks"]]
 
-    if examined == "yes":
-        filtered = [v for v in filtered if v["is_examined"]]
-    elif examined == "no":
+    if examined in {"yes", "true"}:
+        filtered = [v for v in filtered if v["is_examined"] and len(v["ranks"]) > 0]
+    elif examined in {"no", "false"}:
         filtered = [v for v in filtered if not v["is_examined"]]
+    elif examined == "exclusion":
+        filtered = [v for v in filtered if v["is_examined"] and len(v["ranks"]) == 0]
 
     total = len(filtered)
     start = (page - 1) * page_size
     end = start + page_size
     paginated = filtered[start:end]
-    
+
     stats = {
-        "total": len(formatted_videos),
-        "domestic": len([v for v in formatted_videos if "domestic" in v["ranks"]]),
-        "sv": len([v for v in formatted_videos if "sv" in v["ranks"]]),
-        "utau": len([v for v in formatted_videos if "utau" in v["ranks"]]),
-        "uncheck": len([v for v in formatted_videos if not v["is_examined"]])
+        "total": len(filtered),
+        "domestic": len([v for v in filtered if "domestic" in v["ranks"]]),
+        "sv": len([v for v in filtered if "sv" in v["ranks"]]),
+        "utau": len([v for v in filtered if "utau" in v["ranks"]]),
+        "republish": len([v for v in filtered if v["is_republish"]]),
+        "uncheck": len([v for v in filtered if not v["is_examined"]]),
+        "exclusion": len([v for v in filtered if v["is_examined"] and len(v["ranks"]) == 0]),
     }
 
     return {
@@ -219,14 +242,23 @@ async def submit_changes_async(changes: list[dict], auth_key: str | None = None)
     return len(changes)
 
 
-async def reCalculate_rankings_async(rank_name: str, index: int, contain_unexamined: bool, lock: bool, auth_key: str | None = None):
+async def reCalculate_rankings_async(
+    rank_name: str,
+    index: int,
+    contain_unexamined: bool,
+    lock: bool,
+    auth_key: str | None = None,
+):
     """recalculate rankings"""
     rank = Rank[rank_name.upper()]
     client = await CVSE_Client.create(CVSE_HOST, CVSE_PORT, auth_key)
     await client.reCalculateRankings(rank, index, contain_unexamined, lock)
     return f"Recalculated rankings for {rank_name}"
 
-async def check_if_calculated(rank_name: str, index: int, contain_unexamined: bool, auth_key: str | None = None):
+
+async def check_if_calculated(
+    rank_name: str, index: int, contain_unexamined: bool, auth_key: str | None = None
+):
     """check if rankings are calculated"""
     rank = Rank[rank_name.upper()]
     client = await CVSE_Client.create(CVSE_HOST, CVSE_PORT, auth_key)
@@ -272,10 +304,10 @@ def validate_auth():
     try:
         data = request.get_json()
         auth_key = data.get("auth_key")
-        
+
         if not auth_key:
             return jsonify({"success": False, "error": "No auth key provided"}), 400
-        
+
         async def test_auth():
             client = await CVSE_Client.create(CVSE_HOST, CVSE_PORT, auth_key)
             try:
@@ -283,13 +315,17 @@ def validate_auth():
                 return True
             except Exception:
                 return False
-        
+
         is_valid = asyncio.run(capnp.run(test_auth()))
-        
+
         if is_valid:
-            return jsonify({"success": True, "valid": True, "message": "Auth key is valid"})
+            return jsonify(
+                {"success": True, "valid": True, "message": "Auth key is valid"}
+            )
         else:
-            return jsonify({"success": True, "valid": False, "message": "Auth key may be invalid"})
+            return jsonify(
+                {"success": True, "valid": False, "message": "Auth key may be invalid"}
+            )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -312,7 +348,15 @@ def get_videos():
         result = asyncio.run(
             capnp.run(
                 get_videos_async(
-                    keyword, rank_filter, examined, bvid, avid, page, page_size, date_str, auth_key
+                    keyword,
+                    rank_filter,
+                    examined,
+                    bvid,
+                    avid,
+                    page,
+                    page_size,
+                    date_str,
+                    auth_key,
                 )
             )
         )
@@ -333,7 +377,7 @@ def get_videos():
 
 
 @app.route("/api/video/<bvid>", methods=["GET"])
-@limiter.limit("60 per minute")
+@limiter.limit("120 per minute")
 def get_video(bvid):
     """API: Get single video by bvid"""
     try:
@@ -368,23 +412,25 @@ def submit_changes():
 
 
 @app.route("/api/calculate-rankings", methods=["POST"])
-@limiter.limit("5 per minute")
+# @limiter.limit("1 per minute")
 def calculate_rankings():
     """
-        API: Calculate rankings for a specific rank
-        Costly operation, should be used with caution.
+    API: Calculate rankings for a specific rank
+    Costly operation, should be used with caution.
     """
     try:
         data = request.get_json()
         rank_name = data.get("rank", "domestic")
         index = int(data.get("index", 0))
-        contain_unexamined = data.get("contain_unexamined", False)
+        contain_unexamined = data.get("contain_unexamined", True)
         lock = data.get("lock", False)
         auth_key = get_auth_key_from_request()
 
         message = asyncio.run(
             capnp.run(
-                reCalculate_rankings_async(rank_name, index, contain_unexamined, lock, auth_key)
+                reCalculate_rankings_async(
+                    rank_name, index, contain_unexamined, lock, auth_key
+                )
             )
         )
 
@@ -393,15 +439,22 @@ def calculate_rankings():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-async def get_ranking_preview_async(rank_name: str, index: int, contain_unexamined: bool, auth_key: str | None = None):
-    """Get ranking preview data"""
-    import aiohttp
-    
+async def get_ranking_preview_async(
+    rank_name: str,
+    index: int,
+    contain_unexamined: bool,
+    auth_key: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+):
+    """Get ranking preview data with pagination"""
     client = await CVSE_Client.create(CVSE_HOST, CVSE_PORT, auth_key)
-    
     try:
-        stat = await client.lookupRankingMetaInfo(Rank[rank_name.upper()], index, contain_unexamined)
-    except Exception:
+        stat = await client.lookupRankingMetaInfo(
+            Rank[rank_name.upper()], index, contain_unexamined
+        )
+    except Exception as e:
+        logging.warning(f"Error looking up ranking meta info: {e}")
         return {
             "stat": {
                 "count": 0,
@@ -413,7 +466,7 @@ async def get_ranking_preview_async(rank_name: str, index: int, contain_unexamin
             },
             "entries": [],
         }
-    
+
     if stat.count == 0:
         return {
             "stat": {
@@ -426,55 +479,79 @@ async def get_ranking_preview_async(rank_name: str, index: int, contain_unexamin
             },
             "entries": [],
         }
-    
-    indices = await client.getAllRankingInfo(Rank[rank_name.upper()], index, contain_unexamined, 1, min(stat.count + 1, 51))
-    
-    entries = await client.lookupRankingInfo(Rank[rank_name.upper()], index, contain_unexamined, list(indices))
-    
-    bvids = [e.bvid for e in entries]
-    
+
+    # Pagination: from_rank is 1-based, to_rank is exclusive
+    from_rank = (page - 1) * page_size + 1
+    to_rank = min(from_rank + page_size, stat.count + 1)
+    indices = list(
+        await client.getAllRankingInfo(
+            Rank[rank_name.upper()], index, contain_unexamined, from_rank, to_rank
+        )
+    )
+
+    entries = await client.lookupRankingInfo(
+        Rank[rank_name.upper()], index, contain_unexamined, indices
+    )
+
+    meta_infos = await client.lookupMetaInfo(indices)
+
     video_info_map = {}
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://www.bilibili.com"
-    }
-    async with aiohttp.ClientSession(headers=headers) as session:
-        for bvid in bvids[:50]:
-            try:
-                async with session.get(f"https://api.bilibili.com/x/web-interface/view?bvid={bvid}", timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        if data.get("code") == 0:
-                            video_info_map[bvid] = {
-                                "title": data["data"].get("title", ""),
-                                "uploader": data["data"].get("owner", {}).get("name", ""),
-                                "cover": data["data"].get("pic", ""),
-                                "desc": data["data"].get("desc", ""),
-                            }
-            except Exception:
-                pass
-    
+    for meta_info in meta_infos:
+        bvid = meta_info.bvid
+        video_info_map[bvid] = {
+            "title": meta_info.title,
+            "uploader": meta_info.uploader,
+            "cover": meta_info.cover,
+            "desc": meta_info.desc,
+        }
+    # headers = {
+    #     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    #     "Referer": "https://www.bilibili.com",
+    # }
+    # async with aiohttp.ClientSession(headers=headers) as session:
+    #     for bvid in bvids:
+    #         try:
+    #             async with session.get(
+    #                 f"https://api.bilibili.com/x/web-interface/view?bvid={bvid}",
+    #                 timeout=aiohttp.ClientTimeout(total=5),
+    #             ) as resp:
+    #                 if resp.status == 200:
+    #                     data = await resp.json()
+    #                     if data.get("code") == 0:
+    #                         video_info_map[bvid] = {
+    #                             "title": data["data"].get("title", ""),
+    #                             "uploader": data["data"]
+    #                             .get("owner", {})
+    #                             .get("name", ""),
+    #                             "cover": data["data"].get("pic", ""),
+    #                             "desc": data["data"].get("desc", ""),
+    #                         }
+    #         except Exception:
+    #             pass
+
     formatted_entries = []
     for entry in entries:
         video_info = video_info_map.get(entry.bvid, {})
-        formatted_entries.append({
-            "rank": entry.rank,
-            "bvid": entry.bvid,
-            "avid": entry.avid,
-            "title": video_info.get("title", ""),
-            "uploader": video_info.get("uploader", ""),
-            "cover": video_info.get("cover", ""),
-            "view": entry.view,
-            "like": entry.like,
-            "coin": entry.coin,
-            "favorite": entry.favorite,
-            "share": entry.share,
-            "totalScore": entry.totalScore,
-            "isNew": entry.isNew,
-        })
-    
+        formatted_entries.append(
+            {
+                "rank": entry.rank,
+                "bvid": entry.bvid,
+                "avid": entry.avid,
+                "title": video_info.get("title", ""),
+                "uploader": video_info.get("uploader", ""),
+                "cover": video_info.get("cover", ""),
+                "view": entry.view,
+                "like": entry.like,
+                "coin": entry.coin,
+                "favorite": entry.favorite,
+                "share": entry.share,
+                "totalScore": entry.totalScore,
+                "isNew": entry.isNew,
+            }
+        )
+
     formatted_entries.sort(key=lambda x: x["rank"])
-    
+
     return {
         "stat": {
             "count": stat.count,
@@ -485,22 +562,31 @@ async def get_ranking_preview_async(rank_name: str, index: int, contain_unexamin
             "totalNew": stat.totalNew,
         },
         "entries": formatted_entries,
+        "page": page,
+        "page_size": page_size,
+        "total": stat.count,
     }
 
 
 @app.route("/api/ranking-preview", methods=["GET"])
 @limiter.limit("30 per minute")
 def get_ranking_preview():
-    """API: Get ranking preview data"""
+    """API: Get ranking preview data with pagination"""
     try:
         rank_name = request.args.get("rank", "domestic")
         index = int(request.args.get("index", 0))
-        contain_unexamined = request.args.get("contain_unexamined", "false").lower() == "true"
+        contain_unexamined = (
+            request.args.get("contain_unexamined", "true").lower() == "true"
+        )
+        page = int(request.args.get("page", 1))
+        page_size = int(request.args.get("page_size", 20))
         auth_key = get_auth_key_from_request()
 
         result = asyncio.run(
             capnp.run(
-                get_ranking_preview_async(rank_name, index, contain_unexamined, auth_key)
+                get_ranking_preview_async(
+                    rank_name, index, contain_unexamined, auth_key, page, page_size
+                )
             )
         )
 
@@ -548,19 +634,5 @@ def main():
     serve(app, host=host, port=port)
 
 
-@app.route("/api/proxy-image")
-def proxy_image():
-    """Proxy BiliBili images to avoid CORS issues"""
-    import requests
-    url = request.args.get("url")
-    if not url:
-        return "Missing url parameter", 400
-    
-    try:
-        resp = requests.get(url, headers={
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-            "Referer": "https://www.bilibili.com"
-        }, timeout=10)
-        return Response(resp.content, mimetype=resp.headers.get("Content-Type", "image/jpeg"))
-    except Exception as e:
-        return str(e), 500
+if __name__ == "__main__":
+    main()
